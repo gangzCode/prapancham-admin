@@ -17,6 +17,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { DataTableColumnHeader } from "@/components/data-table-column-header"
+import { DataTableFacetedFilter } from "@/components/data-table-faceted-filter"
 
 // Sample data for obituary posts
 type ObituaryPost = {
@@ -211,10 +213,15 @@ export default function ObituaryPostsPage() {
         }
     }
 
+    const uniquePackages = Array.from(new Set(obituaryPosts.map((post) => post.package.name))).map((packageName) => ({
+        label: packageName,
+        value: packageName,
+    }))
+
     const columns: ColumnDef<ObituaryPost>[] = [
         {
             accessorKey: "name",
-            header: "Name",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Name" type="text" />,
             cell: ({ row }) => (
                 <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
@@ -227,26 +234,48 @@ export default function ObituaryPostsPage() {
         },
         {
             accessorKey: "title",
-            header: "Title",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Title" type="text" />,
             cell: ({ row }) => <div className="max-w-[300px] truncate">{row.original.title}</div>,
         },
         {
             accessorKey: "package.name",
-            header: "Package",
+            header: ({ column }) => (
+                <div className="flex items-center space-x-2">
+                    <DataTableColumnHeader column={column} title="Package" type="text" />
+                    <DataTableFacetedFilter column={column} title="Package" options={uniquePackages} />
+                </div>
+            ),
         },
         {
             accessorKey: "expiryDate",
-            header: "Expiry Date",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Expiry Date" type="date" />,
             cell: ({ row }) => <div>{formatDate(row.original.expiryDate)}</div>,
         },
         {
             accessorKey: "status",
-            header: "Status",
+            header: ({ column }) => (
+                <div className="flex items-center space-x-2">
+                    <DataTableColumnHeader column={column} title="Status" type="status" />
+                    <DataTableFacetedFilter
+                        column={column}
+                        title="Status"
+                        options={[
+                            { label: "Active", value: "active" },
+                            { label: "Expired", value: "expired" },
+                            { label: "Pending", value: "pending" },
+                            { label: "Rejected", value: "rejected" },
+                        ]}
+                    />
+                </div>
+            ),
             cell: ({ row }) => (
                 <div className="cursor-pointer" onClick={() => handleOpenStatusChange(row.original)}>
                     {getStatusBadge(row.original.status)}
                 </div>
             ),
+            filterFn: (row, id, value) => {
+                return value.includes(row.getValue(id))
+            },
         },
         {
             id: "actions",

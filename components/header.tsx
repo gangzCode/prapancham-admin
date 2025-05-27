@@ -34,22 +34,21 @@ export function Header() {
         {/* <div className="relative hidden md:flex md:w-60 lg:w-80">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            type="search"
-            placeholder={t("search")}
-            className="w-full bg-background pl-8"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+        type="search"
+        placeholder={t("search")}
+        className="w-full bg-background pl-8"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div> */}
         <Image
-          src="/images/Prapancham-logo-white.svg"
+          src="/images/Prapancham-logo.png"
           alt="Prapancham Logo"
-          width={292}
+          width={56}
           height={56}
           priority
-          className="max-w-[200px] sm:max-w-none"
+          className="max-w-[56px] sm:max-w-none items-center justify-center rounded-md"
         />
-
       </div>
 
       <div className="flex items-center gap-4">

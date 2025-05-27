@@ -2,8 +2,9 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import useSWR from "swr"
 import Link from "next/link"
 import { ArrowLeft, Plus, Upload } from "lucide-react"
 import Image from "next/image"
@@ -25,19 +26,45 @@ export default function AddAdvertisementPage() {
         link: "",
         adType: "",
         adPageName: "",
+        expiryDate: "",
     })
     const [previewImage, setPreviewImage] = useState<string | null>(null)
+    const [imageFile, setImageFile] = useState<File | null>(null)
 
-    // Mock data for ad types
-    const adTypes = [
-        { id: 1, name: "Banner", imageSize: "728x90" },
-        { id: 2, name: "Sidebar", imageSize: "300x250" },
-        { id: 3, name: "Popup", imageSize: "600x400" },
-        { id: 4, name: "Footer", imageSize: "970x90" },
-        { id: 5, name: "In-article", imageSize: "468x60" },
-    ]
+    const [adTypes, setAdTypes] = useState<any[]>([])
+    const [adTypePage, setAdTypePage] = useState(1)
+    const [adTypeTotalPages, setAdTypeTotalPages] = useState(1)
+    const adTypeLimit = 10
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
+    const { data: adTypeData, isLoading: adTypeLoading } = useSWR(
+        `${apiUrl}/advertistment/ad-type/active?page=${adTypePage}&limit=${adTypeLimit}`,
+        async (url) => {
+            const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+            const res = await fetch(url, {
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token && { Authorization: `Bearer ${token}` }),
+                },
+            })
+            if (!res.ok) throw new Error("Failed to fetch ad types")
+            return res.json()
+        },
+        { keepPreviousData: true }
+    )
 
-    // Mock data for page names
+    useEffect(() => {
+        if (adTypeData?.adTypes) {
+            setAdTypes((prev) => {
+                const ids = new Set(prev.map((t) => t._id || t.id))
+                return [
+                    ...prev,
+                    ...adTypeData.adTypes.filter((t: any) => !ids.has(t._id || t.id)),
+                ]
+            })
+            setAdTypeTotalPages(adTypeData.pagination?.totalPages || 1)
+        }
+    }, [adTypeData])
+
     const pageNames = [
         { value: "home", label: "Home Page" },
         { value: "obituary", label: "Obituary Page" },
@@ -58,6 +85,7 @@ export default function AddAdvertisementPage() {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (file) {
+            setImageFile(file)
             const reader = new FileReader()
             reader.onload = () => {
                 setPreviewImage(reader.result as string)
@@ -69,10 +97,18 @@ export default function AddAdvertisementPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
-        if (!previewImage) {
+        if (!imageFile) {
             toast({
                 title: "Error",
                 description: "Please upload an image for the advertisement.",
+                variant: "destructive",
+            })
+            return
+        }
+        if (!formData.expiryDate) {
+            toast({
+                title: "Error",
+                description: "Please select an expiry date.",
                 variant: "destructive",
             })
             return
@@ -81,8 +117,28 @@ export default function AddAdvertisementPage() {
         setIsSubmitting(true)
 
         try {
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 1000))
+            const form = new FormData()
+            form.append("link", String(formData.link))
+            form.append("adType", String(formData.adType))
+            form.append("adPageName", String(formData.adPageName))
+            form.append("expiryDate", String(formData.expiryDate))
+            if (imageFile) form.append("image", imageFile)
+
+            // Debug: log FormData entries
+            for (const pair of form.entries()) {
+                console.log(pair[0] + ': ' + pair[1])
+            }
+
+            const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+            const res = await fetch(`${apiUrl}/advertistment`, {
+                method: "POST",
+                headers: {
+                    ...(token && { Authorization: `Bearer ${token}` }),
+                },
+                body: form,
+            })
+
+            if (!res.ok) throw new Error("Failed to create advertisement")
 
             toast({
                 title: "Advertisement created",
@@ -100,7 +156,6 @@ export default function AddAdvertisementPage() {
             setIsSubmitting(false)
         }
     }
-
 
     return (
         <div className="flex flex-col gap-5">
@@ -165,12 +220,24 @@ export default function AddAdvertisementPage() {
                                     <SelectTrigger id="adType">
                                         <SelectValue placeholder="Select ad type" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent
+                                        onScroll={e => {
+                                            const el = e.currentTarget
+                                            if (
+                                                el.scrollTop + el.clientHeight >= el.scrollHeight - 10 &&
+                                                adTypePage < adTypeTotalPages &&
+                                                !adTypeLoading
+                                            ) {
+                                                setAdTypePage((p) => p + 1)
+                                            }
+                                        }}
+                                    >
                                         {adTypes.map((type) => (
-                                            <SelectItem key={type.id} value={type.id.toString()}>
-                                                {type.name} ({type.imageSize})
+                                            <SelectItem key={type._id || type.id} value={type._id || type.id}>
+                                                {type.type ? `${type.type}` : ""}
                                             </SelectItem>
                                         ))}
+                                        {adTypeLoading && <div className="p-2 text-center text-xs text-muted-foreground">Loading...</div>}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -193,6 +260,18 @@ export default function AddAdvertisementPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="expiryDate">Expiry Date</Label>
+                            <Input
+                                id="expiryDate"
+                                name="expiryDate"
+                                type="date"
+                                value={formData.expiryDate}
+                                onChange={e => setFormData(prev => ({ ...prev, expiryDate: e.target.value }))}
+                                required
+                            />
                         </div>
 
                         <div className="space-y-2">

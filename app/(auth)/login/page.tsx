@@ -14,7 +14,7 @@ import { LanguageProvider } from "@/contexts/language-context"
 import { LanguageSelector } from "@/components/language-selector"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
+  const [username, setusername] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
@@ -28,20 +28,39 @@ export default function LoginPage() {
       // Simulate login - in a real app, this would be an API call
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      // For demo purposes, hardcoded credentials
-      if (email === "admin@prapancham.com" && password === "admin123") {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const { _id, username, email, isAdmin, isSuperAdmin, accessToken } = data;
+
+        // Store the required fields in localStorage
+        localStorage.setItem("user", JSON.stringify({ _id, username, email, isAdmin, isSuperAdmin, accessToken }));
+        localStorage.setItem("token", accessToken);
         toast({
           title: "Login successful",
           description: "Welcome to Prapancham Admin Panel",
-        })
-        router.push("/dashboard")
+        });
+        router.push("/dashboard");
       } else {
+        const errorData = await response.json();
         toast({
           title: "Login failed",
-          description: "Invalid email or password",
+          description: errorData.message || "Invalid username or password",
           variant: "destructive",
-        })
+        });
       }
+      toast({
+        title: "Login successful",
+        description: "Welcome to Prapancham Admin Panel",
+      })
+      router.push("/dashboard")
     } catch (error) {
       toast({
         title: "Login failed",
@@ -61,7 +80,7 @@ export default function LoginPage() {
             <div className="flex justify-center mb-4">
               <div className="relative h-20 w-60">
                 <Image
-                  src="/placeholder.svg?height=80&width=240"
+                  src="/images/Prapancham-logo.png?height=80&width=240"
                   alt="Prapancham Logo"
                   fill
                   className="object-contain"
@@ -71,19 +90,19 @@ export default function LoginPage() {
             <CardTitle className="text-2xl font-bold">Admin Login</CardTitle>
             <CardDescription>Enter your credentials to access the admin panel</CardDescription>
             <div className="absolute top-4 right-4">
-              <LanguageSelector />
+              {/* <LanguageSelector /> */}
             </div>
           </CardHeader>
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="username">User Name</Label>
                 <Input
-                  id="email"
-                  type="email"
+                  id="username"
+                  type="username"
                   placeholder="admin@prapancham.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={username}
+                  onChange={(e) => setusername(e.target.value)}
                   required
                 />
               </div>

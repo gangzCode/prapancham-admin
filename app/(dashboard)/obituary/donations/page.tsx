@@ -14,6 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useLanguage } from "@/contexts/language-context"
+import { DataTableColumnHeader } from "@/components/data-table-column-header"
+import { DataTableFacetedFilter } from "@/components/data-table-faceted-filter"
 
 // Sample data for donations
 type Donation = {
@@ -129,14 +131,24 @@ export default function ObituaryDonationsPage() {
     setEditDonation(null)
   }
 
+  const uniqueObituaries = Array.from(new Set(donations.map((donation) => donation.obituaryName))).map((name) => ({
+    label: name,
+    value: name,
+  }))
+
   const columns: ColumnDef<Donation>[] = [
     {
       accessorKey: "obituaryName",
-      header: "Obituary",
+      header: ({ column }) => (
+        <div className="flex items-center space-x-2">
+          <DataTableColumnHeader column={column} title="Obituary" type="text" />
+          <DataTableFacetedFilter column={column} title="Obituary" options={uniqueObituaries} />
+        </div>
+      ),
     },
     {
       accessorKey: "donorName",
-      header: "Donor",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Donor" type="text" />,
       cell: ({ row }) => (
         <div>
           <div>{row.original.donorName}</div>
@@ -146,21 +158,34 @@ export default function ObituaryDonationsPage() {
     },
     {
       accessorKey: "amount",
-      header: "Amount",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Amount" type="number" />,
       cell: ({ row }) => <div>${row.original.amount.toFixed(2)}</div>,
     },
     {
       accessorKey: "amountToFamily",
-      header: "To Family",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="To Family" type="number" />,
       cell: ({ row }) => <div>${row.original.amountToFamily.toFixed(2)}</div>,
     },
     {
       accessorKey: "date",
-      header: "Date",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Date" type="date" />,
     },
     {
       accessorKey: "status",
-      header: "Status",
+      header: ({ column }) => (
+        <div className="flex items-center space-x-2">
+          <DataTableColumnHeader column={column} title="Status" type="status" />
+          <DataTableFacetedFilter
+            column={column}
+            title="Status"
+            options={[
+              { label: "Processed", value: "processed" },
+              { label: "Pending", value: "pending" },
+              { label: "Failed", value: "failed" },
+            ]}
+          />
+        </div>
+      ),
       cell: ({ row }) => {
         const status = row.original.status
         let variant: "default" | "secondary" | "destructive" = "default"

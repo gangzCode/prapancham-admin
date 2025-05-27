@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Plus, Eye, Pencil, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import useSWR from "swr"
 import type { ColumnDef } from "@tanstack/react-table"
 import { PageHeader } from "@/components/page-header"
 import { DataTable } from "@/components/data-table"
@@ -12,8 +13,9 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { useLanguage } from "@/contexts/language-context"
+import { DataTableColumnHeader } from "@/components/data-table-column-header"
+import { DataTableFacetedFilter } from "@/components/data-table-faceted-filter"
 
-// Sample data for advertisements
 type Advertisement = {
   id: string
   title: string
@@ -27,68 +29,78 @@ type Advertisement = {
   imageUrl: string
 }
 
-const advertisements: Advertisement[] = [
-  {
-    id: "1",
-    title: "Summer Sale Promotion",
-    client: "Local Retail Store",
-    placement: "Homepage Banner",
-    size: "728x90",
-    startDate: "2023-05-01",
-    endDate: "2023-05-31",
-    price: 500,
-    status: "active",
-    imageUrl: "/placeholder.svg?height=90&width=728",
-  },
-  {
-    id: "2",
-    title: "New Restaurant Opening",
-    client: "Fine Dining Restaurant",
-    placement: "Sidebar",
-    size: "300x250",
-    startDate: "2023-05-15",
-    endDate: "2023-06-15",
-    price: 350,
-    status: "active",
-    imageUrl: "/placeholder.svg?height=250&width=300",
-  },
-  {
-    id: "3",
-    title: "Community Event",
-    client: "Local Community Center",
-    placement: "Article Footer",
-    size: "970x250",
-    startDate: "2023-06-01",
-    endDate: "2023-06-15",
-    price: 400,
-    status: "scheduled",
-    imageUrl: "/placeholder.svg?height=250&width=970",
-  },
-  {
-    id: "4",
-    title: "Job Fair Announcement",
-    client: "City Employment Office",
-    placement: "Homepage Banner",
-    size: "728x90",
-    startDate: "2023-04-15",
-    endDate: "2023-05-15",
-    price: 500,
-    status: "expired",
-    imageUrl: "/placeholder.svg?height=90&width=728",
-  },
-  {
-    id: "5",
-    title: "Holiday Special Offer",
-    client: "Local Business Association",
-    placement: "Sidebar",
-    size: "300x600",
-    startDate: "2023-12-01",
-    endDate: "2023-12-31",
-    price: 600,
-    status: "draft",
-    imageUrl: "/placeholder.svg?height=600&width=300",
-  },
-]
+const fetcher = async (url: string): Promise<{ advertisements: Advertisement[]; pagination?: any }> => {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  const res = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` }),
+    },
+  })
+  if (!res.ok) throw new Error("Failed to fetch")
+  return res.json().then(async (json) => ({
+    advertisements: await Promise.all(
+      (json.advertisements || json.data || []).map(async (ad: any) => {
+        // Format date as "Dec 12 2025"
+        const formatDate = (dateStr: string) => {
+          if (!dateStr) return ""
+          const date = new Date(dateStr)
+          return date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "2-digit",
+            year: "numeric",
+          })
+        }
+
+        let size = ""
+        if (ad.adType && typeof ad.adType === "string") {
+          try {
+            const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+            const adTypeRes = await fetch(
+              `${process.env.NEXT_PUBLIC_API_URL}/advertistment/ad-type/${ad.adType}`,
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(token && { Authorization: `Bearer ${token}` }),
+                },
+              }
+            )
+            if (adTypeRes.ok) {
+              const adTypeData = await adTypeRes.json()
+              size = adTypeData?.imageSize || ""
+            }
+          } catch (e) {
+            size = ""
+          }
+        } else if (ad.adType && typeof ad.adType === "object") {
+          size = ad.adType.imageSize || ""
+        }
+
+        return {
+          id: ad._id || ad.id,
+          title: ad.adPageName || "",
+          client: "",
+          placement: ad.adPageName || "",
+          size,
+          startDate: formatDate(ad.uploadedDate),
+          endDate: formatDate(ad.expiryDate),
+          price: 0,
+          status: ad.isActive
+            ? "active"
+            : ad.expiryDate && new Date(ad.expiryDate) < new Date()
+              ? "expired"
+              : "draft",
+          imageUrl: ad.image || "",
+        }
+      })
+    ),
+    pagination: {
+      currentPage: json.pagination.currentPage,
+      totalPages: json.pagination.totalPages,
+      totalItems: json.pagination.totalItems,
+    },
+  }))
+}
 
 export default function AdvertisementPage() {
   const router = useRouter()
@@ -97,6 +109,13 @@ export default function AdvertisementPage() {
   const [viewAd, setViewAd] = useState<Advertisement | null>(null)
   const [deleteAd, setDeleteAd] = useState<Advertisement | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
+  const { data, error, isLoading, mutate } = useSWR<{ advertisements: Advertisement[]; pagination?: any }>(
+    `${process.env.NEXT_PUBLIC_API_URL}/advertistment/all?page=${page}&limit=${pageSize}`,
+    fetcher
+  )
 
   const handleAddAd = () => {
     router.push("/advertisement/new")
@@ -111,47 +130,83 @@ export default function AdvertisementPage() {
 
     setIsDeleting(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/advertistment/${deleteAd.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      })
 
-    toast({
-      title: "Advertisement deleted",
-      description: `"${deleteAd.title}" has been deleted successfully.`,
-    })
+      toast({
+        title: "Advertisement deleted",
+        description: `"${deleteAd.title}" has been deleted successfully.`,
+      })
+
+      mutate()
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to delete advertisement." })
+    }
 
     setIsDeleting(false)
     setDeleteAd(null)
   }
 
+  const uniquePlacements = Array.from(new Set((data?.advertisements || []).map((ad: Advertisement) => ad.placement))).map((placement) => ({
+    label: String(placement),
+    value: String(placement),
+  }))
+
   const columns: ColumnDef<Advertisement>[] = [
     {
       accessorKey: "title",
-      header: "Title",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Title" type="text" />,
       cell: ({ row }) => <div className="font-medium">{row.original.title}</div>,
     },
-    {
-      accessorKey: "client",
-      header: "Client",
-    },
+    // {
+    //   accessorKey: "client",
+    //   header: ({ column }) => <DataTableColumnHeader column={column} title="Client" type="text" />,
+    // },
     {
       accessorKey: "placement",
-      header: "Placement",
+      header: ({ column }) => (
+        <div className="flex items-center space-x-2">
+          {/* <DataTableColumnHeader column={column} title="Placement" type="text" /> */}
+          <DataTableFacetedFilter column={column} title="Placement" options={uniquePlacements} />
+        </div>
+      ),
     },
     {
       accessorKey: "size",
-      header: "Size",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Size" type="text" />,
     },
     {
       accessorKey: "startDate",
-      header: "Start Date",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Start Date" type="date" />,
     },
     {
       accessorKey: "endDate",
-      header: "End Date",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="End Date" type="date" />,
     },
     {
       accessorKey: "status",
-      header: "Status",
+      header: ({ column }) => (
+        <div className="flex items-center space-x-2">
+          {/* <DataTableColumnHeader column={column} title="Status" type="status" /> */}
+          <DataTableFacetedFilter
+            column={column}
+            title="Status"
+            options={[
+              { label: "Active", value: "active" },
+              { label: "Scheduled", value: "scheduled" },
+              { label: "Expired", value: "expired" },
+              { label: "Draft", value: "draft" },
+            ]}
+          />
+        </div>
+      ),
       cell: ({ row }) => {
         const status = row.original.status
         let variant: "default" | "secondary" | "destructive" | "outline" = "default"
@@ -207,12 +262,24 @@ export default function AdvertisementPage() {
         }}
       />
 
-      <DataTable
-        columns={columns}
-        data={advertisements}
-        searchKey="title"
-        searchPlaceholder="Search advertisements..."
-      />
+      {isLoading ? (
+        <div className="text-center">Loading...</div>
+      ) : error ? (
+        <div className="text-center text-red-500">Failed to load advertisements.</div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={data?.advertisements || []}
+          searchKey="title"
+          searchPlaceholder="Search advertisements..."
+          currentPage={page}
+          totalPages={data?.pagination?.totalPages || 1}
+          totalItems={data?.pagination?.totalItems || 0}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+      )}
 
       {/* View Advertisement Dialog */}
       <ViewDialog
@@ -228,7 +295,7 @@ export default function AdvertisementPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* <div className="grid grid-cols-2 gap-4">
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Client</h3>
                 <p>{viewAd.client}</p>
@@ -249,7 +316,7 @@ export default function AdvertisementPage() {
                   {viewAd.status}
                 </Badge>
               </div>
-            </div>
+            </div> */}
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -273,10 +340,10 @@ export default function AdvertisementPage() {
               </div>
             </div>
 
-            <div>
+            {/* <div>
               <h3 className="font-medium text-sm text-muted-foreground">Price</h3>
               <p className="text-lg font-semibold">${viewAd.price}</p>
-            </div>
+            </div> */}
           </div>
         )}
       </ViewDialog>

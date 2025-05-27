@@ -43,8 +43,8 @@ const packageFormSchema = z.object({
     noofBgColors: z.coerce.number().min(0).optional(),
     noofPrimaryImageBgFrames: z.coerce.number().min(0).optional(),
     addons: z.array(z.string()).default([]),
-    bgColors: z.string().optional(),
-    primaryImageBgFrames: z.string().optional(),
+    bgColors: z.array(z.string()).default([]),
+    primaryImageBgFrames: z.array(z.string()).default([]),
     description: z.object({
         en: z
             .array(
@@ -416,7 +416,7 @@ export default function NewPackagePage() {
                                     )}
                                 />
 
-                                <FormField
+                                {/* <FormField
                                     control={form.control}
                                     name="bgColors"
                                     render={({ field }) => (
@@ -445,9 +445,9 @@ export default function NewPackagePage() {
                                             <FormMessage />
                                         </FormItem>
                                     )}
-                                />
+                                /> */}
 
-                                <FormField
+                                {/* <FormField
                                     control={form.control}
                                     name="primaryImageBgFrames"
                                     render={({ field }) => (
@@ -470,7 +470,98 @@ export default function NewPackagePage() {
                                             <FormMessage />
                                         </FormItem>
                                     )}
-                                />
+                                /> */}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <FormLabel className="text-base">Background Colors</FormLabel>
+                                    <FormDescription className="mb-4">Select background colors for this package</FormDescription>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {colors.map((color) => (
+                                            <FormField
+                                                key={color.id}
+                                                control={form.control}
+                                                name="bgColors"
+                                                render={({ field }) => {
+                                                    const selectedColors = field.value || [];
+                                                    return (
+                                                        <FormItem
+                                                            key={color.id}
+                                                            className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"
+                                                        >
+                                                            <FormControl>
+                                                                <Checkbox
+                                                                    checked={selectedColors.includes(color.colorCode)}
+                                                                    onCheckedChange={(checked) => {
+                                                                        field.onChange(
+                                                                            checked
+                                                                                ? [...selectedColors, color.colorCode]
+                                                                                : selectedColors.filter((value) => value !== color.colorCode)
+                                                                        );
+                                                                    }}
+                                                                />
+                                                            </FormControl>
+                                                            <div className="space-y-1 leading-none">
+                                                                <div className="flex items-center">
+                                                                    <div
+                                                                        className="h-4 w-4 rounded-full mr-2"
+                                                                        style={{ backgroundColor: color.colorCode }}
+                                                                    />
+                                                                    {color.colorCode}
+                                                                </div>
+                                                            </div>
+                                                        </FormItem>
+                                                    );
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <FormLabel className="text-base">Primary Image Background Frames</FormLabel>
+                                    <FormDescription className="mb-4">Select primary image background frames for this package</FormDescription>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {frames.map((frame) => (
+                                            <FormField
+                                                key={frame.id}
+                                                control={form.control}
+                                                name="primaryImageBgFrames"
+                                                render={({ field }) => {
+                                                    const selectedFrames = field.value || [];
+                                                    return (
+                                                        <FormItem
+                                                            key={frame.id}
+                                                            className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"
+                                                        >
+                                                            <FormControl>
+                                                                <Checkbox
+                                                                    checked={selectedFrames.includes(frame.id)}
+                                                                    onCheckedChange={(checked) => {
+                                                                        field.onChange(
+                                                                            checked
+                                                                                ? [...selectedFrames, frame.id]
+                                                                                : selectedFrames.filter((value) => value !== frame.id)
+                                                                        );
+                                                                    }}
+                                                                />
+                                                            </FormControl>
+                                                            <div className="space-y-1 leading-none">
+                                                                <img
+                                                                    src={frame.frameImage}
+                                                                    alt={`Frame ${frame.id}`}
+                                                                    className="h-10 w-10 object-cover rounded-md"
+                                                                />
+                                                                <span>Frame {frame.id}</span>
+                                                            </div>
+                                                        </FormItem>
+                                                    );
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
 
                             <div>
@@ -750,7 +841,11 @@ export default function NewPackagePage() {
                                 >
                                     Cancel
                                 </Button>
-                                <Button type="submit" disabled={isSubmitting}>
+                                <Button
+                                    type="button"
+                                    onClick={() => console.log(form.getValues())}
+                                    disabled={isSubmitting}
+                                >
                                     {isSubmitting ? "Creating..." : "Create Package"}
                                 </Button>
                             </div>

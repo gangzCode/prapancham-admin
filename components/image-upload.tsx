@@ -1,23 +1,34 @@
 "use client"
 
-import { useCallback } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useDropzone } from "react-dropzone"
 import { cn } from "@/lib/utils"
 
 interface ImageUploadProps {
-    value: string
-    onChange: (value: string) => void
+    value: File | null
+    onChange: (value: File | null) => void
     previewWidth?: number
     previewHeight?: number
 }
 
 export function ImageUpload({ value, onChange, previewWidth = 150, previewHeight = 150 }: ImageUploadProps) {
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
+    useEffect(() => {
+        if (value) {
+            const url = URL.createObjectURL(value)
+            setPreviewUrl(url)
+            return () => URL.revokeObjectURL(url)
+        } else {
+            setPreviewUrl(null)
+        }
+    }, [value])
+
     const onDrop = useCallback(
         (acceptedFiles: File[]) => {
             const file = acceptedFiles[0]
             if (file) {
-                const url = URL.createObjectURL(file)
-                onChange(url)
+                onChange(file)
             }
         },
         [onChange],
@@ -35,10 +46,10 @@ export function ImageUpload({ value, onChange, previewWidth = 150, previewHeight
         <div className={cn("border-dashed border-2 rounded-md p-4", value ? "cursor-default" : "cursor-pointer")}>
             <div {...getRootProps()}>
                 <input {...getInputProps()} />
-                {value ? (
+                {previewUrl ? (
                     <div className="flex items-center justify-center">
                         <img
-                            src={value || "/placeholder.svg"}
+                            src={previewUrl}
                             alt="Uploaded Image"
                             style={{ width: previewWidth, height: previewHeight, objectFit: "cover" }}
                             className="rounded-md"

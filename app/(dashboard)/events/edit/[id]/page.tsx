@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
@@ -15,121 +15,139 @@ import { useToast } from "@/hooks/use-toast"
 import { useLanguage } from "@/contexts/language-context"
 import { Switch } from "@/components/ui/switch"
 import { ImageUpload } from "@/components/image-upload"
-import { CalendarIcon, Loader2 } from "lucide-react"
+import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-// Form schema with validation
+const multilingualField = z.object({
+    name: z.string(),
+    value: z.string().min(2, { message: "Required" }),
+})
 const eventFormSchema = z.object({
-    name: z.string().min(2, {
-        message: "Name must be at least 2 characters.",
+    name: z.object({
+        en: z.array(multilingualField),
+        ta: z.array(multilingualField),
+        si: z.array(multilingualField),
     }),
-    description: z.string().min(10, {
-        message: "Description must be at least 10 characters.",
+    description: z.object({
+        en: z.array(multilingualField),
+        ta: z.array(multilingualField),
+        si: z.array(multilingualField),
     }),
     eventDate: z.date({
         required_error: "Event date is required.",
     }),
-    isFeatured: z.boolean().default(false),
-    image: z.string().min(1, {
-        message: "Event image is required.",
+    expiryDate: z.date({
+        required_error: "Expiry date is required.",
     }),
-    featuredEventImage: z.string().optional(),
+    isFeatured: z.boolean().default(false),
+    image: z.any().refine(val => val instanceof File || typeof val === "string", { message: "Event image is required." }),
+    featuredEventImage: z.any().optional(),
     eventLink: z.string().url({ message: "Please enter a valid URL" }).optional().or(z.literal("")),
     registeredPeopleCount: z.string().optional(),
-    isDeleted: z.boolean().default(false),
 })
 
 type EventFormValues = z.infer<typeof eventFormSchema>
 
-export default function EditEventPage({ params }: { params: { id: string } }) {
+export default function EditEventPage() {
     const router = useRouter()
+    const params = useParams()
     const { toast } = useToast()
     const { t } = useLanguage()
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [isLoading, setIsLoading] = useState(true)
+    const [langTab, setLangTab] = useState<"en" | "ta" | "si">("en")
+    const [loading, setLoading] = useState(true)
 
     // Initialize form
     const form = useForm<EventFormValues>({
         resolver: zodResolver(eventFormSchema),
-        defaultValues: {
-            name: "",
-            description: "",
-            isFeatured: false,
-            image: "",
-            featuredEventImage: "",
-            eventLink: "",
-            registeredPeopleCount: "0",
-            isDeleted: false,
-        },
+        defaultValues: undefined, // will set after fetch
     })
-
-    // Watch for featured status to conditionally show featured image upload
-    const isFeatured = form.watch("isFeatured")
 
     // Fetch event data
     useEffect(() => {
-        async function fetchEvent() {
+        const fetchEvent = async () => {
+            setLoading(true)
             try {
-                // Simulate API call
-                await new Promise((resolve) => setTimeout(resolve, 500))
+                const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/event/${params.id}`, {
+                    headers: {
+                        ...(token && { Authorization: `Bearer ${token}` }),
+                    },
+                })
+                if (!res.ok) throw new Error("Failed to fetch event")
+                const data = await res.json()
 
-                // Mock data for the example
-                const eventData = {
-                    id: params.id,
-                    name: "Community Gathering",
-                    description: "Annual community gathering to celebrate local achievements and plan future initiatives.",
-                    eventDate: "2023-06-15T10:00:00",
-                    isFeatured: true,
-                    image: "/placeholder.svg?height=200&width=400",
-                    featuredEventImage: "/placeholder.svg?height=400&width=800",
-                    eventLink: "https://example.com/events/community-gathering",
-                    registeredPeopleCount: "150",
-                    isDeleted: false,
-                }
-
-                // Set form values
+                // Map API data to form values
                 form.reset({
-                    name: eventData.name,
-                    description: eventData.description,
-                    eventDate: new Date(eventData.eventDate),
-                    isFeatured: eventData.isFeatured,
-                    image: eventData.image,
-                    featuredEventImage: eventData.featuredEventImage,
-                    eventLink: eventData.eventLink,
-                    registeredPeopleCount: eventData.registeredPeopleCount,
-                    isDeleted: eventData.isDeleted,
+                    name: data.name,
+                    description: data.description,
+                    eventDate: data.eventDate ? new Date(data.eventDate) : undefined,
+                    expiryDate: data.expiryDate ? new Date(data.expiryDate) : undefined,
+                    isFeatured: !!data.isFeatured,
+                    image: data.image || "",
+                    featuredEventImage: data.featuredEventImage || "",
+                    eventLink: data.eventLink || "",
+                    registeredPeopleCount: data.registeredPeopleCount ? String(data.registeredPeopleCount) : "",
                 })
             } catch (error) {
                 toast({
                     title: "Error",
-                    description: "Failed to load event data. Please try again.",
+                    description: "Could not load event data.",
                     variant: "destructive",
                 })
             } finally {
-                setIsLoading(false)
+                setLoading(false)
             }
         }
-
         fetchEvent()
-    }, [params.id, form, toast])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [params.id])
 
-    // Form submission handler
-    async function onSubmit(data: EventFormValues) {
+    // Watch for featured status to conditionally show featured image upload
+    const isFeatured = form.watch("isFeatured")
+
+    // Form submission handler (update)
+    const handleSubmit = async (values: any) => {
         setIsSubmitting(true)
-
         try {
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 1000))
+            const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+            const formData = new FormData()
+
+            formData.append("name", JSON.stringify(values.name))
+            formData.append("description", JSON.stringify(values.description))
+            formData.append("eventDate", values.eventDate instanceof Date ? values.eventDate.toISOString() : values.eventDate)
+            formData.append("expiryDate", values.expiryDate instanceof Date ? values.expiryDate.toISOString() : values.expiryDate)
+            formData.append("isFeatured", String(values.isFeatured))
+            formData.append("eventLink", values.eventLink || "")
+            formData.append("registeredPeopleCount", values.registeredPeopleCount || "")
+            formData.append("eventId", `${params.id}`)
+
+            // Only append file if it's a File, otherwise skip (assume string is URL)
+            if (values.image instanceof File) {
+                formData.append("image", values.image)
+            }
+            if (values.featuredEventImage instanceof File) {
+                formData.append("featuredEventImage", values.featuredEventImage)
+            }
+
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/event`, {
+                method: "POST",
+                headers: {
+                    ...(token && { Authorization: `Bearer ${token}` }),
+                },
+                body: formData,
+            })
+
+            if (!res.ok) throw new Error("Failed to update event")
 
             toast({
                 title: "Event updated",
-                description: `${data.name} has been updated successfully.`,
+                description: "The event has been updated successfully.",
             })
-
-            // Redirect back to events list
             router.push("/events")
         } catch (error) {
             toast({
@@ -142,36 +160,52 @@ export default function EditEventPage({ params }: { params: { id: string } }) {
         }
     }
 
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        )
+    if (loading) {
+        return <div className="p-8 text-center">Loading event data...</div>
     }
 
     return (
         <div className="space-y-6">
             <PageHeader
                 title="Edit Event"
-                description="Modify an existing event"
+                description="Update community event details"
                 href="/events"
             />
 
             <Card>
                 <CardContent className="pt-6">
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
                             <FormField
                                 control={form.control}
                                 name="name"
-                                render={({ field }) => (
+                                render={() => (
                                     <FormItem>
                                         <FormLabel>Event Name</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Enter event name" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
+                                        <Tabs value={langTab} onValueChange={v => setLangTab(v as "en" | "ta" | "si")} className="mb-2">
+                                            <TabsList>
+                                                <TabsTrigger value="en">English</TabsTrigger>
+                                                <TabsTrigger value="ta">Tamil</TabsTrigger>
+                                                <TabsTrigger value="si">Sinhala</TabsTrigger>
+                                            </TabsList>
+                                            {(["en", "ta", "si"] as const).map((lang) => (
+                                                <TabsContent key={lang} value={lang}>
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`name.${lang}.0.value`}
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>{form.getValues().name?.[lang]?.[0].name}</FormLabel>
+                                                                <FormControl>
+                                                                    <Input placeholder={`Enter event name (${lang})`} {...field} />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </TabsContent>
+                                            ))}
+                                        </Tabs>
                                     </FormItem>
                                 )}
                             />
@@ -179,13 +213,33 @@ export default function EditEventPage({ params }: { params: { id: string } }) {
                             <FormField
                                 control={form.control}
                                 name="description"
-                                render={({ field }) => (
+                                render={() => (
                                     <FormItem>
                                         <FormLabel>Description</FormLabel>
-                                        <FormControl>
-                                            <Textarea placeholder="Enter event description" className="min-h-32" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
+                                        <Tabs value={langTab} onValueChange={v => setLangTab(v as "en" | "ta" | "si")} className="mb-2">
+                                            <TabsList>
+                                                <TabsTrigger value="en">English</TabsTrigger>
+                                                <TabsTrigger value="ta">Tamil</TabsTrigger>
+                                                <TabsTrigger value="si">Sinhala</TabsTrigger>
+                                            </TabsList>
+                                            {(["en", "ta", "si"] as const).map((lang) => (
+                                                <TabsContent key={lang} value={lang}>
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`description.${lang}.0.value`}
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>{form.getValues().description?.[lang]?.[0].name}</FormLabel>
+                                                                <FormControl>
+                                                                    <Textarea placeholder={`Enter description (${lang})`} className="min-h-32" {...field} />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </TabsContent>
+                                            ))}
+                                        </Tabs>
                                     </FormItem>
                                 )}
                             />
@@ -236,14 +290,42 @@ export default function EditEventPage({ params }: { params: { id: string } }) {
 
                                 <FormField
                                     control={form.control}
-                                    name="eventLink"
+                                    name="expiryDate"
                                     render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Event Link (Optional)</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="https://example.com/event" {...field} />
-                                            </FormControl>
-                                            <FormDescription>A link to the event page or registration form.</FormDescription>
+                                        <FormItem className="flex flex-col">
+                                            <FormLabel>Expiry Date</FormLabel>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <FormControl>
+                                                        <Button
+                                                            variant={"outline"}
+                                                            className={cn(
+                                                                "w-full pl-3 text-left font-normal",
+                                                                !field.value && "text-muted-foreground",
+                                                            )}
+                                                        >
+                                                            {field.value ? format(field.value, "PPP p") : <span>Pick expiry date and time</span>}
+                                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                        </Button>
+                                                    </FormControl>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                                                    <div className="p-3 border-t border-border">
+                                                        <Input
+                                                            type="time"
+                                                            onChange={(e) => {
+                                                                const date = new Date(field.value || new Date())
+                                                                const [hours, minutes] = e.target.value.split(":")
+                                                                date.setHours(Number.parseInt(hours, 10), Number.parseInt(minutes, 10))
+                                                                field.onChange(date)
+                                                            }}
+                                                            defaultValue={field.value ? format(field.value, "HH:mm") : ""}
+                                                        />
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <FormDescription>The date and time when the event will expire.</FormDescription>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -256,7 +338,7 @@ export default function EditEventPage({ params }: { params: { id: string } }) {
                                     name="registeredPeopleCount"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Registered People Count</FormLabel>
+                                            <FormLabel>Registered People Count (Optional)</FormLabel>
                                             <FormControl>
                                                 <Input type="number" min="0" placeholder="0" {...field} />
                                             </FormControl>
@@ -285,32 +367,18 @@ export default function EditEventPage({ params }: { params: { id: string } }) {
 
                             <FormField
                                 control={form.control}
-                                name="isDeleted"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 border-destructive/20 bg-destructive/5">
-                                        <div className="space-y-0.5">
-                                            <FormLabel className="text-base">Mark as Deleted</FormLabel>
-                                            <FormDescription>
-                                                This will hide the event from the website but keep it in the database.
-                                            </FormDescription>
-                                        </div>
-                                        <FormControl>
-                                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                        </FormControl>
-                                    </FormItem>
-                                )}
-                            />
-
-                            <FormField
-                                control={form.control}
                                 name="image"
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Event Image</FormLabel>
                                         <FormControl>
                                             <ImageUpload
-                                                value={field.value}
-                                                onChange={(url) => field.onChange(url)}
+                                                value={
+                                                    field.value instanceof File
+                                                        ? field.value
+                                                        : null
+                                                }
+                                                onChange={file => field.onChange(file)}
                                                 previewHeight={200}
                                                 previewWidth={400}
                                             />
@@ -330,8 +398,12 @@ export default function EditEventPage({ params }: { params: { id: string } }) {
                                             <FormLabel>Featured Event Image (Optional)</FormLabel>
                                             <FormControl>
                                                 <ImageUpload
-                                                    value={field.value || ""}
-                                                    onChange={(url) => field.onChange(url)}
+                                                    value={
+                                                        field.value instanceof File
+                                                            ? field.value
+                                                            : null
+                                                    }
+                                                    onChange={file => field.onChange(file)}
                                                     previewHeight={200}
                                                     previewWidth={400}
                                                 />
@@ -351,7 +423,7 @@ export default function EditEventPage({ params }: { params: { id: string } }) {
                                     Cancel
                                 </Button>
                                 <Button type="submit" disabled={isSubmitting}>
-                                    {isSubmitting ? "Saving..." : "Save Changes"}
+                                    {isSubmitting ? "Updating..." : "Update Event"}
                                 </Button>
                             </div>
                         </form>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { DollarSign, FileText } from "lucide-react"
+import { ArrowRight, DollarSign, FileText, Plus } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import { StatCard } from "@/components/stat-card"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { DataTable } from "@/components/data-table"
 import type { ColumnDef } from "@tanstack/react-table"
+import { useRouter } from "next/navigation"
 
 // Sample data for charts
 const chartData = [
@@ -67,6 +68,20 @@ const recentUsers: User[] = [
   {
     id: "5",
     name: "Michael Wilson",
+    email: "michael@example.com",
+    joinedDate: "2023-05-11",
+    status: "active",
+  },
+  {
+    id: "6",
+    name: "rgs Davis",
+    email: "emily@example.com",
+    joinedDate: "2023-05-12",
+    status: "active",
+  },
+  {
+    id: "7",
+    name: "Michfvgael Wilson",
     email: "michael@example.com",
     joinedDate: "2023-05-11",
     status: "active",
@@ -326,7 +341,25 @@ const eventColumns: ColumnDef<Event>[] = [
 ]
 
 export default function DashboardPage() {
+  const router = useRouter()
+
   const [activeTab, setActiveTab] = useState("day")
+
+  const navigateToRecent = () => {
+    router.push("/obituary/users")
+  }
+
+  const navigateToPosts = () => {
+    router.push("/obituary/posts")
+  }
+
+  const navigateToAdvertisements = () => {
+    router.push("/advertisement")
+  }
+
+  const navigateToEvents = () => {
+    router.push("/events")
+  }
 
   return (
     <div className="space-y-6">
@@ -423,8 +456,16 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Recent Users</CardTitle>
-            <CardDescription>The latest 5 users who joined the platform</CardDescription>
+            <div className="flex justify-between">
+              <div>
+                <CardTitle>Recent Users</CardTitle>
+                <CardDescription>The latest 5 users who joined the platform</CardDescription>
+              </div>
+              <button onClick={navigateToRecent} className="flex items-center text-sm  hover:text-primary">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </button>
+            </div>
           </CardHeader>
           <CardContent>
             <DataTable columns={userColumns} data={recentUsers} />
@@ -433,8 +474,16 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent Obituary Posts</CardTitle>
-            <CardDescription>The latest 5 obituary posts</CardDescription>
+            <div className="flex justify-between">
+              <div>
+                <CardTitle>Recent Obituary Posts</CardTitle>
+                <CardDescription>The latest 5 obituary posts</CardDescription>
+              </div>
+              <button onClick={navigateToPosts} className="flex items-center text-sm  hover:text-primary">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </button>
+            </div>
           </CardHeader>
           <CardContent>
             <DataTable columns={obituaryColumns} data={recentObituaries} />
@@ -445,8 +494,17 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Recent Advertisements</CardTitle>
-            <CardDescription>The latest 5 advertisements</CardDescription>
+            <div className="flex justify-between">
+              <div>
+                <CardTitle>Recent Advertisements</CardTitle>
+                <CardDescription>The latest 5 advertisements</CardDescription>
+              </div>
+              <button onClick={navigateToAdvertisements} className="flex items-center text-sm  hover:text-primary">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </button>
+            </div>
+
           </CardHeader>
           <CardContent>
             <DataTable columns={adColumns} data={recentAds} />
@@ -455,8 +513,17 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent Events</CardTitle>
-            <CardDescription>The latest 5 events</CardDescription>
+            <div className="flex justify-between">
+              <div>
+                <CardTitle>Recent Events</CardTitle>
+                <CardDescription>The latest 5 events</CardDescription>
+              </div>
+              <button onClick={navigateToEvents} className="flex items-center text-sm  hover:text-primary">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </button>
+            </div>
+
           </CardHeader>
           <CardContent>
             <DataTable columns={eventColumns} data={recentEvents} />

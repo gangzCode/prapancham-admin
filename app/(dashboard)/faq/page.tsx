@@ -1,5 +1,5 @@
 "use client"
-
+import useSWR from "swr"
 import { useState } from "react"
 import { Plus, Eye, Pencil, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -13,116 +13,66 @@ import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { useLanguage } from "@/contexts/language-context"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DataTableColumnHeader } from "@/components/data-table-column-header"
+import { DataTableFacetedFilter } from "@/components/data-table-faceted-filter"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "recharts"
 
-// Sample data for FAQs
+
 type FAQ = {
   id: string
-  question: { en: string; ta: string; si: string }
-  answer: { en: string; ta: string; si: string }
-  category: string
-  order: number
-  status: "published" | "draft"
+  question: {
+    en: { name: string; value: string };
+    ta: { name: string; value: string };
+    si: { name: string; value: string };
+  }
+  answer: {
+    en: { name: string; value: string };
+    ta: { name: string; value: string };
+    si: { name: string; value: string };
+  }
+  listingNumber: number
+  isActive: boolean
+  isDeleted: boolean
 }
 
 
-const faqs: FAQ[] = [
-  {
-    id: "1",
-    question: {
-      en: "How do I create an obituary on your website?",
-      ta: "உங்கள் இணையதளத்தில் மரண அறிவிப்பை எவ்வாறு உருவாக்குவது?",
-      si: "ඔබගේ වෙබ් අඩවියේ අවමංගල්‍ය දැන්වීමක් කෙරෙන්නේ කෙසේද?"
+
+
+const fetcher = async (url: string) => {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+
+  const res = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` }),
     },
-    answer: {
-      en: "To create an obituary, you need to register an account first. After logging in, navigate to the 'Create Obituary' section and follow the step-by-step guide.",
-      ta: "மரண அறிவிப்பை உருவாக்க, முதலில் ஒரு கணக்கை பதிவு செய்ய வேண்டும். உள்நுழைந்த பிறகு, 'மரண அறிவிப்பு உருவாக்கு' பிரிவுக்கு சென்று வழிகாட்டியை பின்பற்றவும்.",
-      si: "අවමංගල්‍ය දැන්වීමක් සෑදීමට, පළමුව ගිණුමක් ලියාපදිංචි කළ යුතුය. පසුව 'අවමංගල්‍ය දැන්වීමක් සාදන්න' කොටසට ගොස් පියවරෙන් පියවර මාර්ගෝපදේශය අනුගමනය කරන්න."
-    },
-    category: "Obituaries",
-    order: 1,
-    status: "published",
-  },
-  {
-    id: "2",
-    question: {
-      en: "What payment methods do you accept?",
-      ta: "எந்த வகையான பணப் பரிவர்த்தனை முறைகளை ஏற்கிறீர்கள்?",
-      si: "ඔබ පිළිගන්නා ගෙවීම් ක්‍රම මොනවාද?"
-    },
-    answer: {
-      en: "We accept credit cards, PayPal, and bank transfers.",
-      ta: "நாங்கள் கிரெடிட் கார்டு, PayPal மற்றும் வங்கிப் பரிமாற்றங்களை ஏற்கிறோம்.",
-      si: "අපි ණය පත්‍ර, PayPal සහ බැංකු මාරු පිළිගන්නෙමු."
-    },
-    category: "Payments",
-    order: 1,
-    status: "published",
-  },
-  {
-    id: "3",
-    question: {
-      en: "How long will the obituary remain on your website?",
-      ta: "மரண அறிவிப்பு உங்கள் இணையதளத்தில் எவ்வளவு நேரம் இருக்கும்?",
-      si: "අවමංගල්‍ය දැන්වීම ඔබේ වෙබ් අඩවියේ කල් තැබේද?"
-    },
-    answer: {
-      en: "It depends on the package. Basic stays for 30 days, premium can be longer.",
-      ta: "இது உங்கள் தேர்வு செய்த திட்டத்தைப் பொறுத்தது. அடிப்படை திட்டம் 30 நாட்கள் இருக்கும், மேம்பட்டது மேலும் நீடிக்கலாம்.",
-      si: "එය ඔබ තෝරාගත් පැකේජය මත निर्भर වේ. මූලික පැකේජය දින 30ක් ඇත, ප්‍රිමියම් එක දිගු වේ."
-    },
-    category: "Obituaries",
-    order: 2,
-    status: "published",
-  },
-  {
-    id: "4",
-    question: {
-      en: "Can I make donations in memory of someone?",
-      ta: "ஒருவரின் நினைவாக நன்கொடை செய்ய முடியுமா?",
-      si: "කිසිවෙකුගේ ස්මරණය සඳහා පරිත්‍යාග කළ හැකිද?"
-    },
-    answer: {
-      en: "Yes, a donate button is available on each obituary page.",
-      ta: "ஆம், ஒவ்வொரு மரண அறிவிப்புப் பக்கத்திலும் நன்கொடை பொத்தான் உள்ளது.",
-      si: "ඔව්, සෑම අවමංගල්‍ය දැන්වීමක් පිටුවකම පරිත්‍යාග බොත්තමක් ඇත."
-    },
-    category: "Donations",
-    order: 1,
-    status: "published",
-  },
-  {
-    id: "5",
-    question: {
-      en: "How are donations distributed to the family?",
-      ta: "நன்கொடைகள் குடும்பத்தினருக்கு எப்படி வழங்கப்படும்?",
-      si: "පරිත්‍යාගය පවුලට කෙසේ බෙදා හැරේද?"
-    },
-    answer: {
-      en: "We process the payment and transfer it to the family's account within 5–7 days.",
-      ta: "நாங்கள் பணத்தை செயல்படுத்தி, 5-7 நாட்களுக்குள் குடும்பத்தின் கணக்கில் அனுப்புகிறோம்.",
-      si: "අපි ගෙවීම් සකසා දින 5-7ක් ඇතුළත පවුලේ ගිණුමට මාරු කරමු."
-    },
-    category: "Donations",
-    order: 2,
-    status: "published",
-  },
-  {
-    id: "6",
-    question: {
-      en: "Can I edit an obituary after it's published?",
-      ta: "மரண அறிவிப்பு வெளியிடப்பட்ட பிறகு அதைத் திருத்த முடியுமா?",
-      si: "අවමංගල්‍ය දැන්වීම ප්‍රකාශයට පත්කළ පසු එය සංස්කරණය කළ හැකිද?"
-    },
-    answer: {
-      en: "Yes, you can edit anytime via 'My Obituaries' after login.",
-      ta: "ஆம், உள்நுழைந்த பிறகு 'எனது மரண அறிவிப்புகள்' மூலம் எப்போது வேண்டுமானாலும் திருத்தலாம்.",
-      si: "ඔව්, ඔබට 'මගේ අවමංගල්‍ය' ක්‍රමයෙන් සෙවීමට පසු කිසිදු වේලාවක සංස්කරණය කළ හැක."
-    },
-    category: "Obituaries",
-    order: 3,
-    status: "draft",
-  },
-]
+  })
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch")
+  }
+
+  return res.json().then((json) => ({
+    ...json,
+    faqs: json.faqs.map((faq: any) => ({
+      ...faq,
+      id: faq._id,
+      question: {
+        en: faq.question.en[0],
+        ta: faq.question.ta[0],
+        si: faq.question.si[0],
+      },
+      answer: {
+        en: faq.answer.en[0],
+        ta: faq.answer.ta[0],
+        si: faq.answer.si[0],
+      },
+    })),
+  }))
+
+}
 
 
 export default function FAQPage() {
@@ -132,6 +82,21 @@ export default function FAQPage() {
   const [viewFAQ, setViewFAQ] = useState<FAQ | null>(null)
   const [deleteFAQ, setDeleteFAQ] = useState<FAQ | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+  const [statusFAQ, setStatusFAQ] = useState<FAQ | null>(null)
+  const [newActiveStatus, setNewActiveStatus] = useState<boolean>(true)
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+
+
+
+
+
+  const { data, error, isLoading, mutate } = useSWR(
+    `${process.env.NEXT_PUBLIC_API_URL}/faq/all?page=${page}&limit=${pageSize}`,
+    fetcher
+  )
+
 
   const handleAddFAQ = () => {
     router.push("/faq/new")
@@ -141,49 +106,113 @@ export default function FAQPage() {
     router.push(`/faq/edit/${faqId}`)
   }
 
+
   const handleDeleteFAQ = async () => {
     if (!deleteFAQ) return
-
     setIsDeleting(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    toast({
-      title: "FAQ deleted",
-      description: "The FAQ has been deleted successfully.",
-    })
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/faq/${deleteFAQ.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      })
+      toast({ title: "FAQ deleted", description: "The FAQ has been deleted successfully." })
+      mutate()
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to delete FAQ." })
+    }
 
     setIsDeleting(false)
     setDeleteFAQ(null)
   }
 
+  const handleOpenStatusChange = (faq: FAQ) => {
+    setStatusFAQ(faq)
+    setNewActiveStatus(faq.isActive)
+  }
+
+  const handleStatusChange = async () => {
+    if (!statusFAQ) return
+    setIsUpdatingStatus(true)
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/faq/${statusFAQ.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          isActive: newActiveStatus,
+        }),
+      })
+      if (!response.ok) throw new Error("Failed to update status")
+      toast({
+        title: "Status updated",
+        description: `Status for \"${statusFAQ.question.en.value}\" has been updated.`,
+      })
+      mutate()
+    } catch (e) {
+      toast({
+        title: "Error",
+        description: "Failed to update FAQ status.",
+      })
+    }
+    setIsUpdatingStatus(false)
+    setStatusFAQ(null)
+  }
+
   const columns: ColumnDef<FAQ>[] = [
     {
+      accessorKey: "listingNumber",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Order" type="number" />,
+    },
+    {
       accessorKey: "question",
-      header: "Question",
-      cell: ({ row }) => <div className="font-medium max-w-[500px] truncate">{row.original.question.en}</div>,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Question" type="text" />,
+      cell: ({ row }) => <div className="font-medium max-w-[500px] truncate">{row.original.question.en.value}</div>,
+      filterFn: (row, id, value) => {
+        const question = row.original.question.en.value.toLowerCase();
+        return question.includes(value.toLowerCase());
+      },
     },
     {
       accessorKey: "answer",
-      header: "Answer",
-      cell: ({ row }) => <div className="font-medium max-w-[300px] truncate">{row.original.answer.en}</div>,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Answer" type="text" />,
+      cell: ({ row }) => <div className="font-medium max-w-[300px] truncate">{row.original.answer.en.value}</div>,
     },
-    // {
-    //   accessorKey: "category",
-    //   header: "Category",
-    // },
-    // {
-    //   accessorKey: "order",
-    //   header: "Order",
-    // },
-    // {
-    //   accessorKey: "status",
-    //   header: "Status",
-    //   cell: ({ row }) => (
-    //     <Badge variant={row.original.status === "published" ? "default" : "secondary"}>{row.original.status}</Badge>
-    //   ),
-    // },
+    {
+      accessorKey: "isActive",
+      header: ({ column }) => (
+        <div className="flex items-center space-x-2">
+          <DataTableFacetedFilter
+            column={column}
+            title="Status"
+            options={[
+              { label: "Active", value: "true" },
+              { label: "Inactive", value: "false" },
+            ]}
+          />
+        </div>
+      ),
+      cell: ({ row }) => (
+        <Badge
+          variant={row.original.isActive ? "default" : "secondary"}
+          className="cursor-pointer"
+          onClick={() => handleOpenStatusChange(row.original)}
+        >
+          {row.original.isActive ? "Active" : "Inactive"}
+        </Badge>
+      ),
+      enableSorting: true,
+      filterFn: (row, id, value) => {
+        return value.includes(String(row.getValue(id)));
+      },
+    },
     {
       id: "actions",
       cell: ({ row }) => (
@@ -217,8 +246,21 @@ export default function FAQPage() {
         }}
       />
 
-      <DataTable columns={columns} data={faqs} searchKey="question" searchPlaceholder="Search FAQs..." />
+      <DataTable
+        columns={columns}
+        data={data?.faqs || []}
+        searchKey="question"
+        searchPlaceholder="Search FAQs..."
+        currentPage={page}
+        totalPages={data?.pagination.totalPages || 1}
+        totalItems={data?.pagination.totalItems || 0}
+        pageSize={pageSize}
+        onPageChange={(newPage) => setPage(newPage)}
+        onPageSizeChange={(newSize) => setPageSize(newSize)}
+      />
 
+
+      {/* {isLoading && <div className="text-center">Loading...</div>} */}
       {/* View FAQ Dialog */}
       <ViewDialog open={!!viewFAQ} onOpenChange={(open) => !open && setViewFAQ(null)} title="FAQ Details">
         {viewFAQ && (
@@ -234,36 +276,31 @@ export default function FAQPage() {
                 <TabsContent key={lang} value={lang} className="space-y-4">
                   <div className="space-y-2 py-4">
                     <h3 className="font-medium text-sm text-muted-foreground">Question</h3>
-                    <p className="font-medium">{viewFAQ.question[lang as keyof typeof viewFAQ.question]}</p>
+                    <p className="font-medium">{viewFAQ.question[lang as keyof typeof viewFAQ.question].value}</p>
                   </div>
 
                   <div className="space-y-2">
                     <h3 className="font-medium text-sm text-muted-foreground">Answer</h3>
-                    <p className="whitespace-pre-wrap">{viewFAQ.answer[lang as keyof typeof viewFAQ.answer]}</p>
+                    <p className="whitespace-pre-wrap">{viewFAQ.answer[lang as keyof typeof viewFAQ.answer].value}</p>
                   </div>
                 </TabsContent>
               ))}
             </Tabs>
 
-            {/* <div className="grid grid-cols-3 gap-4 pt-4">
-              <div>
-                <h3 className="font-medium text-sm text-muted-foreground">Category</h3>
-                <p>{viewFAQ.category}</p>
-              </div>
+            <div className="grid grid-cols-3 gap-4 pt-4">
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Order</h3>
-                <p>{viewFAQ.order}</p>
+                <p>{viewFAQ.listingNumber}</p>
               </div>
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Status</h3>
-                <Badge variant={viewFAQ.status === "published" ? "default" : "secondary"}>{viewFAQ.status}</Badge>
+                <Badge variant={viewFAQ.isActive === true ? "default" : "secondary"}> {viewFAQ.isActive ? "Active" : "Inactive"}</Badge>
               </div>
-            </div> */}
+            </div>
           </div>
         )}
       </ViewDialog>
 
-      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={!!deleteFAQ}
         onOpenChange={(open) => !open && setDeleteFAQ(null)}
@@ -272,6 +309,39 @@ export default function FAQPage() {
         onConfirm={handleDeleteFAQ}
         loading={isDeleting}
       />
+
+      {/* Status Change Dialog */}
+      <Dialog open={!!statusFAQ} onOpenChange={(open) => !open && setStatusFAQ(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Change FAQ Status</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-6 py-4">
+            {statusFAQ && (
+              <div className="text-sm">
+                <p className="font-medium mb-2">FAQ: {statusFAQ.question.en.name}</p>
+                <p className="text-muted-foreground">Update the status of this FAQ</p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Active Status</Label>
+                <p className="text-sm text-muted-foreground">Active FAQs are visible to users</p>
+              </div>
+              <Switch id="active-status" checked={newActiveStatus} onCheckedChange={setNewActiveStatus} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStatusFAQ(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleStatusChange} disabled={isUpdatingStatus}>
+              {isUpdatingStatus ? "Updating..." : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

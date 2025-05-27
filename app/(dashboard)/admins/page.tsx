@@ -11,70 +11,78 @@ import { ViewDialog } from "@/components/view-dialog"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { DataTableColumnHeader } from "@/components/data-table-column-header"
+import { DataTableFacetedFilter } from "@/components/data-table-faceted-filter"
 
-// Sample data for admin users
+// Sample data for admin users based on the provided model
 type AdminUser = {
   id: string
-  name: string
+  username: string
   email: string
-  role: "admin" | "super_admin"
-  permissions: string[]
-  lastLogin: string
-  status: "active" | "inactive"
-  avatar?: string
+  isAdmin: boolean
+  isSuperAdmin: boolean
+  isDeleted: boolean
+  phone?: string
+  createdAt: string
+  updatedAt: string
 }
 
 const adminUsers: AdminUser[] = [
   {
     id: "1",
-    name: "John Smith",
+    username: "johnsmith",
     email: "john@prapancham.com",
-    role: "super_admin",
-    permissions: ["all"],
-    lastLogin: "2023-05-15 09:30:45",
-    status: "active",
-    avatar: "/placeholder.svg?height=40&width=40",
+    isAdmin: true,
+    isSuperAdmin: true,
+    isDeleted: false,
+    phone: "+1 (555) 123-4567",
+    createdAt: "2023-05-15T09:30:45Z",
+    updatedAt: "2023-05-15T09:30:45Z",
   },
   {
     id: "2",
-    name: "Sarah Johnson",
+    username: "sarahjohnson",
     email: "sarah@prapancham.com",
-    role: "admin",
-    permissions: ["dashboard", "obituary", "news", "events"],
-    lastLogin: "2023-05-14 14:22:10",
-    status: "active",
-    avatar: "/placeholder.svg?height=40&width=40",
+    isAdmin: true,
+    isSuperAdmin: false,
+    isDeleted: false,
+    phone: "+1 (555) 234-5678",
+    createdAt: "2023-05-14T14:22:10Z",
+    updatedAt: "2023-05-14T14:22:10Z",
   },
   {
     id: "3",
-    name: "Michael Brown",
+    username: "michaelbrown",
     email: "michael@prapancham.com",
-    role: "admin",
-    permissions: ["dashboard", "news", "events", "contact"],
-    lastLogin: "2023-05-13 11:15:32",
-    status: "active",
-    avatar: "/placeholder.svg?height=40&width=40",
+    isAdmin: true,
+    isSuperAdmin: false,
+    isDeleted: false,
+    phone: "+1 (555) 345-6789",
+    createdAt: "2023-05-13T11:15:32Z",
+    updatedAt: "2023-05-13T11:15:32Z",
   },
   {
     id: "4",
-    name: "Emily Davis",
+    username: "emilydavis",
     email: "emily@prapancham.com",
-    role: "admin",
-    permissions: ["dashboard", "obituary", "tribute"],
-    lastLogin: "2023-05-12 16:45:20",
-    status: "inactive",
-    avatar: "/placeholder.svg?height=40&width=40",
+    isAdmin: true,
+    isSuperAdmin: false,
+    isDeleted: true,
+    phone: "+1 (555) 456-7890",
+    createdAt: "2023-05-12T16:45:20Z",
+    updatedAt: "2023-05-12T16:45:20Z",
   },
   {
     id: "5",
-    name: "Robert Wilson",
+    username: "robertwilson",
     email: "robert@prapancham.com",
-    role: "super_admin",
-    permissions: ["all"],
-    lastLogin: "2023-05-11 08:10:15",
-    status: "active",
-    avatar: "/placeholder.svg?height=40&width=40",
+    isAdmin: true,
+    isSuperAdmin: true,
+    isDeleted: false,
+    phone: "+1 (555) 567-8901",
+    createdAt: "2023-05-11T08:10:15Z",
+    updatedAt: "2023-05-11T08:10:15Z",
   },
 ]
 
@@ -103,24 +111,29 @@ export default function AdminsPage() {
 
     toast({
       title: "Admin deleted",
-      description: `${deleteAdmin.name} has been removed from admin users.`,
+      description: `${deleteAdmin.username} has been removed from admin users.`,
     })
 
     setIsDeleting(false)
     setDeleteAdmin(null)
   }
 
+  // Format date to a more readable format
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleString()
+  }
+
   const columns: ColumnDef<AdminUser>[] = [
     {
-      accessorKey: "name",
-      header: "Name",
+      accessorKey: "username",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Username" type="text" />,
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={row.original.avatar || "/placeholder.svg"} alt={row.original.name} />
-            <AvatarFallback>{row.original.name.charAt(0)}</AvatarFallback>
+            <AvatarFallback>{row.original.username.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
-          <span className="font-medium">{row.original.name}</span>
+          <span className="font-medium">{row.original.username}</span>
         </div>
       ),
     },
@@ -130,27 +143,64 @@ export default function AdminsPage() {
     },
     {
       accessorKey: "role",
-      header: "Role",
+      accessorFn: (row) => (row.isSuperAdmin ? "Super Admin" : row.isAdmin ? "Admin" : "User"),
+      header: ({ column }) => (
+        <div className="flex items-center space-x-2">
+          <DataTableColumnHeader column={column} title="Role" type="text" />
+          <DataTableFacetedFilter
+            column={column}
+            title="Role"
+            options={[
+              { label: "Super Admin", value: "Super Admin" },
+              { label: "Admin", value: "Admin" },
+              { label: "User", value: "User" },
+            ]}
+          />
+        </div>
+      ),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          {row.original.role === "super_admin" ? (
-            <ShieldAlert className="h-4 w-4 text-red-500" />
+          {row.original.isSuperAdmin ? (
+            <>
+              <ShieldAlert className="h-4 w-4 text-red-500" />
+              <span>Super Admin</span>
+            </>
+          ) : row.original.isAdmin ? (
+            <>
+              <Shield className="h-4 w-4 text-blue-500" />
+              <span>Admin</span>
+            </>
           ) : (
-            <Shield className="h-4 w-4 text-blue-500" />
+            <span>User</span>
           )}
-          <span className="capitalize">{row.original.role.replace("_", " ")}</span>
         </div>
       ),
     },
     {
-      accessorKey: "lastLogin",
-      header: "Last Login",
+      accessorKey: "phone",
+      header: "Phone",
+      cell: ({ row }) => <span>{row.original.phone || "—"}</span>,
     },
     {
       accessorKey: "status",
-      header: "Status",
+      accessorFn: (row) => (row.isDeleted ? "Deleted" : "Active"),
+      header: ({ column }) => (
+        <div className="flex items-center space-x-2">
+          <DataTableColumnHeader column={column} title="Status" type="status" />
+          <DataTableFacetedFilter
+            column={column}
+            title="Status"
+            options={[
+              { label: "Active", value: "Active" },
+              { label: "Deleted", value: "Deleted" },
+            ]}
+          />
+        </div>
+      ),
       cell: ({ row }) => (
-        <Badge variant={row.original.status === "active" ? "default" : "secondary"}>{row.original.status}</Badge>
+        <Badge variant={row.original.isDeleted ? "destructive" : "default"}>
+          {row.original.isDeleted ? "Deleted" : "Active"}
+        </Badge>
       ),
     },
     {
@@ -169,7 +219,7 @@ export default function AdminsPage() {
             variant="ghost"
             size="icon"
             onClick={() => setDeleteAdmin(row.original)}
-            disabled={row.original.role === "super_admin"}
+            disabled={row.original.isSuperAdmin}
           >
             <Trash2 className="h-4 w-4" />
             <span className="sr-only">Delete</span>
@@ -191,7 +241,7 @@ export default function AdminsPage() {
         }}
       />
 
-      <DataTable columns={columns} data={adminUsers} searchKey="name" searchPlaceholder="Search admins..." />
+      <DataTable columns={columns} data={adminUsers} searchKey="username" searchPlaceholder="Search admins..." />
 
       {/* View Admin Dialog */}
       <ViewDialog open={!!viewAdmin} onOpenChange={(open) => !open && setViewAdmin(null)} title="Admin Details">
@@ -199,11 +249,10 @@ export default function AdminsPage() {
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16">
-                <AvatarImage src={viewAdmin.avatar || "/placeholder.svg"} alt={viewAdmin.name} />
-                <AvatarFallback>{viewAdmin.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{viewAdmin.username.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div>
-                <h2 className="text-xl font-bold">{viewAdmin.name}</h2>
+                <h2 className="text-xl font-bold">{viewAdmin.username}</h2>
                 <p className="text-muted-foreground">{viewAdmin.email}</p>
               </div>
             </div>
@@ -212,41 +261,42 @@ export default function AdminsPage() {
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Role</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  {viewAdmin.role === "super_admin" ? (
-                    <ShieldAlert className="h-4 w-4 text-red-500" />
+                  {viewAdmin.isSuperAdmin ? (
+                    <>
+                      <ShieldAlert className="h-4 w-4 text-red-500" />
+                      <span>Super Admin</span>
+                    </>
+                  ) : viewAdmin.isAdmin ? (
+                    <>
+                      <Shield className="h-4 w-4 text-blue-500" />
+                      <span>Admin</span>
+                    </>
                   ) : (
-                    <Shield className="h-4 w-4 text-blue-500" />
+                    <span>User</span>
                   )}
-                  <span className="capitalize">{viewAdmin.role.replace("_", " ")}</span>
                 </div>
               </div>
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Status</h3>
-                <Badge variant={viewAdmin.status === "active" ? "default" : "secondary"} className="mt-1">
-                  {viewAdmin.status}
+                <Badge variant={viewAdmin.isDeleted ? "destructive" : "default"} className="mt-1">
+                  {viewAdmin.isDeleted ? "Deleted" : "Active"}
                 </Badge>
               </div>
             </div>
 
             <div>
-              <h3 className="font-medium text-sm text-muted-foreground">Last Login</h3>
-              <p>{viewAdmin.lastLogin}</p>
+              <h3 className="font-medium text-sm text-muted-foreground">Phone</h3>
+              <p>{viewAdmin.phone || "—"}</p>
             </div>
 
-            <div>
-              <h3 className="font-medium text-sm text-muted-foreground">Permissions</h3>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {viewAdmin.permissions.includes("all") ? (
-                  <Badge variant="outline" className="bg-red-50">
-                    All Permissions
-                  </Badge>
-                ) : (
-                  viewAdmin.permissions.map((permission) => (
-                    <Badge key={permission} variant="outline">
-                      {permission.charAt(0).toUpperCase() + permission.slice(1)}
-                    </Badge>
-                  ))
-                )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h3 className="font-medium text-sm text-muted-foreground">Created At</h3>
+                <p>{formatDate(viewAdmin.createdAt)}</p>
+              </div>
+              <div>
+                <h3 className="font-medium text-sm text-muted-foreground">Last Updated</h3>
+                <p>{formatDate(viewAdmin.updatedAt)}</p>
               </div>
             </div>
           </div>
@@ -258,7 +308,7 @@ export default function AdminsPage() {
         open={!!deleteAdmin}
         onOpenChange={(open) => !open && setDeleteAdmin(null)}
         title="Delete Admin"
-        description={`Are you sure you want to remove ${deleteAdmin?.name} from admin users? This action cannot be undone.`}
+        description={`Are you sure you want to remove ${deleteAdmin?.username} from admin users? This action cannot be undone.`}
         onConfirm={handleDeleteAdmin}
         loading={isDeleting}
       />

@@ -20,12 +20,29 @@ export default function DashboardLayout({
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Check if user is authenticated
-    // In a real app, this would verify a token or session
     const checkAuth = () => {
-      // For demo purposes, we'll just check if we're not on the login page
-      if (pathname !== "/login") {
-        setIsAuthenticated(true)
+      const user = localStorage.getItem("user")
+      if (user) {
+        try {
+          const token = localStorage.getItem("token");
+          if (token) {
+            const decodedToken = JSON.parse(atob(token.split(".")[1]));
+            const currentTime = Math.floor(Date.now() / 1000);
+
+            if (decodedToken.exp && decodedToken.exp > currentTime) {
+              setIsAuthenticated(true);
+            } else {
+              setIsAuthenticated(false);
+              router.push("/login");
+            }
+          } else {
+            setIsAuthenticated(false);
+          }
+        } catch (error) {
+          console.error("Error decoding token:", error);
+          setIsAuthenticated(false);
+          router.push("/login");
+        }
       } else {
         setIsAuthenticated(false)
       }
@@ -33,9 +50,8 @@ export default function DashboardLayout({
     }
 
     checkAuth()
-  }, [pathname])
+  }, [])
 
-  // Redirect to login if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated && pathname !== "/login") {
       router.push("/login")

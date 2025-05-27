@@ -20,23 +20,33 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-// Form schema with validation
+// Update schema
+const multilingualField = z.object({
+    name: z.string(),
+    value: z.string().min(2, { message: "Required" }),
+})
 const eventFormSchema = z.object({
-    name: z.string().min(2, {
-        message: "Name must be at least 2 characters.",
+    name: z.object({
+        en: z.array(multilingualField),
+        ta: z.array(multilingualField),
+        si: z.array(multilingualField),
     }),
-    description: z.string().min(10, {
-        message: "Description must be at least 10 characters.",
+    description: z.object({
+        en: z.array(multilingualField),
+        ta: z.array(multilingualField),
+        si: z.array(multilingualField),
     }),
     eventDate: z.date({
         required_error: "Event date is required.",
     }),
-    isFeatured: z.boolean().default(false),
-    image: z.string().min(1, {
-        message: "Event image is required.",
+    expiryDate: z.date({
+        required_error: "Expiry date is required.",
     }),
-    featuredEventImage: z.string().optional(),
+    isFeatured: z.boolean().default(false),
+    image: z.any().refine(val => val instanceof File, { message: "Event image is required." }),
+    featuredEventImage: z.any().optional(),
     eventLink: z.string().url({ message: "Please enter a valid URL" }).optional().or(z.literal("")),
     registeredPeopleCount: z.string().optional(),
 })
@@ -45,13 +55,17 @@ type EventFormValues = z.infer<typeof eventFormSchema>
 
 // Default values for the form
 const defaultValues: Partial<EventFormValues> = {
-    name: "",
-    description: "",
+    name: {
+        en: [{ name: "Title", value: "" }],
+        ta: [{ name: "தலைப்பு", value: "" }],
+        si: [{ name: "සිරස", value: "" }],
+    },
+    description: {
+        en: [{ name: "Details", value: "" }],
+        ta: [{ name: "விவரம்", value: "" }],
+        si: [{ name: "විස්තරය", value: "" }],
+    },
     isFeatured: false,
-    image: "",
-    featuredEventImage: "",
-    eventLink: "",
-    registeredPeopleCount: "0",
 }
 
 export default function NewEventPage() {
@@ -59,6 +73,7 @@ export default function NewEventPage() {
     const { toast } = useToast()
     const { t } = useLanguage()
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [langTab, setLangTab] = useState<"en" | "ta" | "si">("en")
 
     // Initialize form
     const form = useForm<EventFormValues>({
@@ -70,19 +85,39 @@ export default function NewEventPage() {
     const isFeatured = form.watch("isFeatured")
 
     // Form submission handler
-    async function onSubmit(data: EventFormValues) {
+    const handleSubmit = async (values: any) => {
         setIsSubmitting(true)
-
         try {
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 1000))
+            const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+            const form = new FormData()
+
+
+            form.append("name", JSON.stringify(values.name))
+            form.append("description", JSON.stringify(values.description))
+            form.append("eventDate", values.eventDate instanceof Date ? values.eventDate.toISOString() : values.eventDate)
+            form.append("expiryDate", values.expiryDate instanceof Date ? values.expiryDate.toISOString() : values.expiryDate)
+            form.append("isFeatured", String(values.isFeatured))
+            form.append("eventLink", values.eventLink || "")
+            form.append("registeredPeopleCount", values.registeredPeopleCount || "")
+
+            form.append("image", values.image)
+            form.append("featuredEventImage", values.featuredEventImage || "")
+
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/event`, {
+                method: "POST",
+                headers: {
+                    ...(token && { Authorization: `Bearer ${token}` }),
+
+                },
+                body: form,
+            })
+
+            if (!res.ok) throw new Error("Failed to create event")
 
             toast({
                 title: "Event created",
-                description: `${data.name} has been created successfully.`,
+                description: "The event has been created successfully.",
             })
-
-            // Redirect back to events list
             router.push("/events")
         } catch (error) {
             toast({
@@ -106,17 +141,37 @@ export default function NewEventPage() {
             <Card>
                 <CardContent className="pt-6">
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
                             <FormField
                                 control={form.control}
                                 name="name"
-                                render={({ field }) => (
+                                render={() => (
                                     <FormItem>
                                         <FormLabel>Event Name</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Enter event name" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
+                                        <Tabs value={langTab} onValueChange={v => setLangTab(v as "en" | "ta" | "si")} className="mb-2">
+                                            <TabsList>
+                                                <TabsTrigger value="en">English</TabsTrigger>
+                                                <TabsTrigger value="ta">Tamil</TabsTrigger>
+                                                <TabsTrigger value="si">Sinhala</TabsTrigger>
+                                            </TabsList>
+                                            {(["en", "ta", "si"] as const).map((lang) => (
+                                                <TabsContent key={lang} value={lang}>
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`name.${lang}.0.value`}
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>{defaultValues.name?.[lang]?.[0].name}</FormLabel>
+                                                                <FormControl>
+                                                                    <Input placeholder={`Enter event name (${lang})`} {...field} />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </TabsContent>
+                                            ))}
+                                        </Tabs>
                                     </FormItem>
                                 )}
                             />
@@ -124,13 +179,33 @@ export default function NewEventPage() {
                             <FormField
                                 control={form.control}
                                 name="description"
-                                render={({ field }) => (
+                                render={() => (
                                     <FormItem>
                                         <FormLabel>Description</FormLabel>
-                                        <FormControl>
-                                            <Textarea placeholder="Enter event description" className="min-h-32" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
+                                        <Tabs value={langTab} onValueChange={v => setLangTab(v as "en" | "ta" | "si")} className="mb-2">
+                                            <TabsList>
+                                                <TabsTrigger value="en">English</TabsTrigger>
+                                                <TabsTrigger value="ta">Tamil</TabsTrigger>
+                                                <TabsTrigger value="si">Sinhala</TabsTrigger>
+                                            </TabsList>
+                                            {(["en", "ta", "si"] as const).map((lang) => (
+                                                <TabsContent key={lang} value={lang}>
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`description.${lang}.0.value`}
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>{defaultValues.description?.[lang]?.[0].name}</FormLabel>
+                                                                <FormControl>
+                                                                    <Textarea placeholder={`Enter description (${lang})`} className="min-h-32" {...field} />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </TabsContent>
+                                            ))}
+                                        </Tabs>
                                     </FormItem>
                                 )}
                             />
@@ -181,14 +256,42 @@ export default function NewEventPage() {
 
                                 <FormField
                                     control={form.control}
-                                    name="eventLink"
+                                    name="expiryDate"
                                     render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Event Link (Optional)</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="https://example.com/event" {...field} />
-                                            </FormControl>
-                                            <FormDescription>A link to the event page or registration form.</FormDescription>
+                                        <FormItem className="flex flex-col">
+                                            <FormLabel>Expiry Date</FormLabel>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <FormControl>
+                                                        <Button
+                                                            variant={"outline"}
+                                                            className={cn(
+                                                                "w-full pl-3 text-left font-normal",
+                                                                !field.value && "text-muted-foreground",
+                                                            )}
+                                                        >
+                                                            {field.value ? format(field.value, "PPP p") : <span>Pick expiry date and time</span>}
+                                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                        </Button>
+                                                    </FormControl>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                                                    <div className="p-3 border-t border-border">
+                                                        <Input
+                                                            type="time"
+                                                            onChange={(e) => {
+                                                                const date = new Date(field.value || new Date())
+                                                                const [hours, minutes] = e.target.value.split(":")
+                                                                date.setHours(Number.parseInt(hours, 10), Number.parseInt(minutes, 10))
+                                                                field.onChange(date)
+                                                            }}
+                                                            defaultValue={field.value ? format(field.value, "HH:mm") : ""}
+                                                        />
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <FormDescription>The date and time when the event will expire.</FormDescription>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -236,8 +339,8 @@ export default function NewEventPage() {
                                         <FormLabel>Event Image</FormLabel>
                                         <FormControl>
                                             <ImageUpload
-                                                value={field.value}
-                                                onChange={(url) => field.onChange(url)}
+                                                value={field.value as File | null}
+                                                onChange={file => field.onChange(file)}
                                                 previewHeight={200}
                                                 previewWidth={400}
                                             />
@@ -257,8 +360,8 @@ export default function NewEventPage() {
                                             <FormLabel>Featured Event Image (Optional)</FormLabel>
                                             <FormControl>
                                                 <ImageUpload
-                                                    value={field.value || ""}
-                                                    onChange={(url) => field.onChange(url)}
+                                                    value={field.value as File | null}
+                                                    onChange={file => field.onChange(file)}
                                                     previewHeight={200}
                                                     previewWidth={400}
                                                 />

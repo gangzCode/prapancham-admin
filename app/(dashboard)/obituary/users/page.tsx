@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useLanguage } from "@/contexts/language-context"
+import { DataTableColumnHeader } from "@/components/data-table-column-header"
+import { DataTableFacetedFilter } from "@/components/data-table-faceted-filter"
 
 // Sample data for obituary users
 type ObituaryUser = {
@@ -203,7 +205,7 @@ export default function ObituaryUsersPage() {
   const columns: ColumnDef<ObituaryUser>[] = [
     {
       accessorKey: "name",
-      header: "Name",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Name" type="text" />,
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Avatar className="h-8 w-8">
@@ -224,16 +226,28 @@ export default function ObituaryUsersPage() {
     },
     {
       accessorKey: "registeredDate",
-      header: "Registered Date",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Registered Date" type="date" />,
     },
     {
       accessorKey: "packagesPurchased",
-      header: "Packages",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Packages" type="number" />,
       cell: ({ row }) => <div>{row.original.packagesPurchased}</div>,
     },
     {
       accessorKey: "status",
-      header: "Status",
+      header: ({ column }) => (
+        <div className="flex items-center space-x-2">
+          <DataTableColumnHeader column={column} title="Status" type="status" />
+          <DataTableFacetedFilter
+            column={column}
+            title="Status"
+            options={[
+              { label: "Active", value: "active" },
+              { label: "Inactive", value: "inactive" },
+            ]}
+          />
+        </div>
+      ),
       cell: ({ row }) => (
         <Badge variant={row.original.status === "active" ? "default" : "secondary"}>{row.original.status}</Badge>
       ),
@@ -246,10 +260,10 @@ export default function ObituaryUsersPage() {
             <Eye className="h-4 w-4" />
             <span className="sr-only">View</span>
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleEditUser(row.original.id)}>
+          {/* <Button variant="ghost" size="icon" onClick={() => handleEditUser(row.original.id)}>
             <Pencil className="h-4 w-4" />
             <span className="sr-only">Edit</span>
-          </Button>
+          </Button> */}
           <Button variant="ghost" size="icon" onClick={() => setDeleteUser(row.original)}>
             <Trash2 className="h-4 w-4" />
             <span className="sr-only">Delete</span>

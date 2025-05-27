@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Plus, Eye, Pencil, Trash2, Calendar, Link2, Star } from "lucide-react"
 import { useRouter } from "next/navigation"
+import useSWR from "swr"
 import type { ColumnDef } from "@tanstack/react-table"
 import { PageHeader } from "@/components/page-header"
 import { DataTable } from "@/components/data-table"
@@ -13,12 +14,27 @@ import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { useLanguage } from "@/contexts/language-context"
 import { format } from "date-fns"
+import { DataTableColumnHeader } from "@/components/data-table-column-header"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-// Sample data for events based on the provided schema
+type MultilingualField = {
+  name: string
+  value: string
+  _id?: string
+}
+
 type Event = {
   id: string
-  name: string
-  description: string
+  name: {
+    en: string
+    ta: string
+    si: string
+  }
+  description: {
+    en: string
+    ta: string
+    si: string
+  }
   eventDate: string
   isFeatured: boolean
   image: string
@@ -26,90 +42,65 @@ type Event = {
   eventLink?: string
   registeredPeopleCount?: string
   isDeleted: boolean
+  isActive?: boolean
+  expiryDate?: string
+  uploadedDate?: string
   createdAt: string
   updatedAt: string
 }
 
-const events: Event[] = [
-  {
-    id: "1",
-    name: "Community Gathering",
-    description: "Annual community gathering to celebrate local achievements and plan future initiatives.",
-    eventDate: "2023-06-15T10:00:00",
-    isFeatured: true,
-    image: "/placeholder.svg?height=200&width=400",
-    featuredEventImage: "/placeholder.svg?height=400&width=800",
-    eventLink: "#",
-    registeredPeopleCount: "150",
-    isDeleted: false,
-    createdAt: "2023-05-01T09:00:00",
-    updatedAt: "2023-05-01T09:00:00",
-  },
-  {
-    id: "2",
-    name: "Memorial Service",
-    description: "A memorial service to honor those who have passed away in the last year.",
-    eventDate: "2023-05-30T14:00:00",
-    isFeatured: false,
-    image: "/placeholder.svg?height=200&width=400",
-    featuredEventImage: "",
-    eventLink: "#",
-    registeredPeopleCount: "200",
-    isDeleted: false,
-    createdAt: "2023-04-15T11:30:00",
-    updatedAt: "2023-04-15T11:30:00",
-  },
-  {
-    id: "3",
-    name: "Charity Fundraiser",
-    description: "Fundraising event to support local families in need.",
-    eventDate: "2023-07-10T18:00:00",
-    isFeatured: true,
-    image: "/placeholder.svg?height=200&width=400",
-    featuredEventImage: "/placeholder.svg?height=400&width=800",
-    eventLink: "#",
-    registeredPeopleCount: "300",
-    isDeleted: false,
-    createdAt: "2023-05-05T14:45:00",
-    updatedAt: "2023-05-05T14:45:00",
-  },
-  {
-    id: "4",
-    name: "Cultural Festival",
-    description: "Celebration of diverse cultures with food, music, and performances.",
-    eventDate: "2023-05-05T11:00:00",
-    isFeatured: false,
-    image: "/placeholder.svg?height=200&width=400",
-    featuredEventImage: "",
-    eventLink: "#",
-    registeredPeopleCount: "1500",
-    isDeleted: true,
-    createdAt: "2023-03-20T10:15:00",
-    updatedAt: "2023-03-20T10:15:00",
-  },
-  {
-    id: "5",
-    name: "Health and Wellness Fair",
-    description: "Event focused on promoting health and wellness in the community.",
-    eventDate: "2023-08-20T09:00:00",
-    isFeatured: false,
-    image: "/placeholder.svg?height=200&width=400",
-    featuredEventImage: "",
-    eventLink: "#",
-    registeredPeopleCount: "400",
-    isDeleted: false,
-    createdAt: "2023-06-01T08:30:00",
-    updatedAt: "2023-06-01T08:30:00",
-  },
-]
+type LangKey = "en" | "ta" | "si"
+
+const fetcher = async (url: string): Promise<{ events: Event[]; pagination?: any }> => {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  const res = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` }),
+    },
+  })
+  if (!res.ok) throw new Error("Failed to fetch")
+  return res.json().then((json) => ({
+    ...json,
+    events: (json.events || json.data || []).map((ev: any) => ({
+      id: ev._id || ev.id,
+      name: {
+        en: ev.name?.en?.[0]?.value || "",
+        ta: ev.name?.ta?.[0]?.value || "",
+        si: ev.name?.si?.[0]?.value || "",
+      },
+      description: {
+        en: ev.description?.en?.[0]?.value || "",
+        ta: ev.description?.ta?.[0]?.value || "",
+        si: ev.description?.si?.[0]?.value || "",
+      },
+      eventDate: ev.eventDate,
+      isFeatured: ev.isFeatured,
+      image: ev.image,
+      featuredEventImage: ev.featuredEventImage,
+      eventLink: ev.eventLink,
+      registeredPeopleCount: ev.registeredPeopleCount,
+      isDeleted: ev.isDeleted,
+      createdAt: ev.createdAt,
+      updatedAt: ev.updatedAt,
+    })),
+  }))
+}
 
 export default function EventsPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { t } = useLanguage()
+  const { t, lang: dashboardLang = "en" } = useLanguage() as any
   const [viewEvent, setViewEvent] = useState<Event | null>(null)
   const [deleteEvent, setDeleteEvent] = useState<Event | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [previewLang, setPreviewLang] = useState<LangKey>(dashboardLang as LangKey)
+  const { data, error, isLoading, mutate } = useSWR(
+    `${process.env.NEXT_PUBLIC_API_URL}/event/all?page=${page}&limit=${pageSize}`,
+    fetcher
+  )
 
   const handleAddEvent = () => {
     router.push("/events/new")
@@ -124,13 +115,25 @@ export default function EventsPage() {
 
     setIsDeleting(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/event/${deleteEvent.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      })
 
-    toast({
-      title: "Event deleted",
-      description: `"${deleteEvent.name}" has been deleted successfully.`,
-    })
+      toast({
+        title: "Event deleted",
+        description: `"${deleteEvent.name.en}" has been deleted successfully.`,
+      })
+
+      mutate()
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to delete event." })
+    }
 
     setIsDeleting(false)
     setDeleteEvent(null)
@@ -144,13 +147,18 @@ export default function EventsPage() {
     }
   }
 
+  const handleOpenViewEvent = (event: Event | null) => {
+    setViewEvent(event)
+    if (event) setPreviewLang(dashboardLang as LangKey)
+  }
+
   const columns: ColumnDef<Event>[] = [
     {
       accessorKey: "name",
-      header: "Name",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Name" type="text" />,
       cell: ({ row }) => (
         <div className="font-medium">
-          {row.original.name}
+          {row.original.name?.[dashboardLang as LangKey] || row.original.name?.en || ""}
           {row.original.isFeatured && (
             <Badge variant="outline" className="ml-2 bg-yellow-100">
               <Star className="h-3 w-3 mr-1 text-yellow-500" />
@@ -159,15 +167,19 @@ export default function EventsPage() {
           )}
         </div>
       ),
+      filterFn: (row, id, value) => {
+        const question = row.original.name.en.toLowerCase();
+        return question.includes(value.toLowerCase());
+      },
     },
     {
       accessorKey: "eventDate",
-      header: "Event Date",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Event Date" type="date" />,
       cell: ({ row }) => <div>{formatDate(row.original.eventDate)}</div>,
     },
     {
       accessorKey: "registeredPeopleCount",
-      header: "Registered",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Registered" type="number" />,
       cell: ({ row }) => <div>{row.original.registeredPeopleCount || "0"}</div>,
     },
     {
@@ -191,20 +203,11 @@ export default function EventsPage() {
         </div>
       ),
     },
-    // {
-    //   accessorKey: "isDeleted",
-    //   header: "Status",
-    //   cell: ({ row }) => (
-    //     <Badge variant={row.original.isDeleted ? "destructive" : "default"}>
-    //       {row.original.isDeleted ? "Deleted" : "Active"}
-    //     </Badge>
-    //   ),
-    // },
     {
       id: "actions",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => setViewEvent(row.original)}>
+          <Button variant="ghost" size="icon" onClick={() => handleOpenViewEvent(row.original)}>
             <Eye className="h-4 w-4" />
             <span className="sr-only">View</span>
           </Button>
@@ -233,21 +236,65 @@ export default function EventsPage() {
         }}
       />
 
-      <DataTable columns={columns} data={events} searchKey="name" searchPlaceholder="Search events..." />
+      {isLoading ? (
+        <div className="text-center">Loading...</div>
+      ) : error ? (
+        <div className="text-center text-red-500">Failed to load events.</div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={data?.events || []}
+          searchKey={`name`}
+          searchPlaceholder="Search events..."
+          currentPage={page}
+          totalPages={data?.pagination?.totalPages || 1}
+          totalItems={data?.pagination?.totalItems || 0}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+      )}
 
       {/* View Event Dialog */}
       <ViewDialog
         open={!!viewEvent}
-        onOpenChange={(open) => !open && setViewEvent(null)}
-        title={viewEvent?.name || "Event Details"}
+        onOpenChange={(open) => {
+          if (!open) setViewEvent(null)
+        }}
+        title={viewEvent?.name?.[previewLang] || viewEvent?.name?.en || "Event Details"}
       >
         {viewEvent && (
           <div className="space-y-6">
+            <Tabs
+              value={previewLang}
+              defaultValue={dashboardLang}
+              className="w-full"
+              onValueChange={(val) => setPreviewLang(val as LangKey)}
+            >
+              <TabsList>
+                <TabsTrigger value="en">English</TabsTrigger>
+                <TabsTrigger value="ta">Tamil</TabsTrigger>
+                <TabsTrigger value="si">Sinhala</TabsTrigger>
+              </TabsList>
+              {(["en", "ta", "si"] as LangKey[]).map((lang) => (
+                <TabsContent key={lang} value={lang} className="space-y-4">
+                  <div className="space-y-2 py-4">
+                    <h3 className="font-medium text-sm text-muted-foreground">Name</h3>
+                    <p className="font-medium">{viewEvent.name[lang]}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="font-medium text-sm text-muted-foreground">Description</h3>
+                    <p className="whitespace-pre-wrap">{viewEvent.description[lang]}</p>
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+
             <div className="flex justify-center">
               <div className="relative border rounded-md overflow-hidden">
                 <img
                   src={viewEvent.image || "/placeholder.svg?height=200&width=400"}
-                  alt={viewEvent.name}
+                  alt={viewEvent.name?.[previewLang] || viewEvent.name?.en || ""}
                   className="max-w-full h-auto"
                 />
               </div>
@@ -260,7 +307,7 @@ export default function EventsPage() {
                   <div className="relative border rounded-md overflow-hidden">
                     <img
                       src={viewEvent.featuredEventImage || "/placeholder.svg?height=400&width=800"}
-                      alt={`${viewEvent.name} (Featured)`}
+                      alt={`${viewEvent.name?.[previewLang] || viewEvent.name?.en || ""} (Featured)`}
                       className="max-w-full h-auto"
                     />
                   </div>
@@ -270,7 +317,7 @@ export default function EventsPage() {
 
             <div>
               <h3 className="font-medium text-sm text-muted-foreground">Description</h3>
-              <p>{viewEvent.description}</p>
+              <p>{viewEvent.description?.[previewLang] || viewEvent.description?.en || ""}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -336,7 +383,7 @@ export default function EventsPage() {
         open={!!deleteEvent}
         onOpenChange={(open) => !open && setDeleteEvent(null)}
         title="Delete Event"
-        description={`Are you sure you want to delete "${deleteEvent?.name}"? This action cannot be undone.`}
+        description={`Are you sure you want to delete "${deleteEvent?.name?.[previewLang] || deleteEvent?.name?.en || ""}"? This action cannot be undone.`}
         onConfirm={handleDeleteEvent}
         loading={isDeleting}
       />

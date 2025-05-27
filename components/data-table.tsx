@@ -20,8 +20,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  searchKey?: string
+  searchKey?: string | string[]
   searchPlaceholder?: string
+  currentPage: number
+  totalPages: number
+  totalItems: number
+  onPageChange?: (page: number) => void
+  onPageSizeChange?: (pageSize: number) => void
+  pageSize?: number
+  pageSizeOptions?: number[]
 }
 
 export function DataTable<TData, TValue>({
@@ -29,9 +36,17 @@ export function DataTable<TData, TValue>({
   data,
   searchKey,
   searchPlaceholder = "Search...",
+  pageSize = 5,
+  pageSizeOptions = [5, 10, 20, 50, 100],
+  currentPage,
+  totalPages,
+  totalItems,
+  onPageChange,
+  onPageSizeChange,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [searchValue, setSearchValue] = useState("")
 
   const table = useReactTable({
     data,
@@ -45,8 +60,36 @@ export function DataTable<TData, TValue>({
     state: {
       sorting,
       columnFilters,
+      globalFilter: searchValue,
+    },
+    initialState: {
+      pagination: {
+        pageSize,
+      },
+    },
+    globalFilterFn: (row, columnId, filterValue) => {
+      if (Array.isArray(searchKey)) {
+        return searchKey.some((key) => {
+          const cellValue = (row.original as any)[key]
+          return cellValue && cellValue.toString().toLowerCase().includes(filterValue.toLowerCase())
+        })
+      }
+      return true
     },
   })
+
+  function onPageSizeChangeInternal(newPageSize: number) {
+    table.setPageSize(newPageSize)
+    if (onPageSizeChange) {
+      onPageSizeChange(newPageSize)
+    }
+  }
+
+  function handlePageChange(newPage: number) {
+    if (onPageChange) {
+      onPageChange(newPage)
+    }
+  }
 
   return (
     <div className="space-y-4 bg-white p-4 rounded-md shadow-sm">
@@ -54,8 +97,19 @@ export function DataTable<TData, TValue>({
         <div className="flex items-center">
           <Input
             placeholder={searchPlaceholder}
-            value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
-            onChange={(event) => table.getColumn(searchKey)?.setFilterValue(event.target.value)}
+            value={Array.isArray(searchKey)
+              ? searchValue
+              : (table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
+            onChange={(event) => {
+              if (Array.isArray(searchKey)) {
+                setSearchValue(event.target.value)
+                // Custom filter logic for multiple fields
+                const value = event.target.value.toLowerCase()
+                table.setGlobalFilter(value)
+              } else {
+                table.getColumn(searchKey)?.setFilterValue(event.target.value)
+              }
+            }}
             className="max-w-sm"
           />
         </div>
@@ -99,23 +153,26 @@ export function DataTable<TData, TValue>({
           <div className="flex text-sm text-muted-foreground items-center">
             Showing
             <Select
-              value={`${table.getState().pagination.pageSize}`}
+              value={`${pageSize}`}
               onValueChange={(value) => {
-                table.setPageSize(Number(value))
+              onPageSizeChangeInternal(Number(value));
+              if (onPageChange) {
+                onPageChange(1);
+              }
               }}
             >
               <SelectTrigger className="h-8 w-[70px] mx-2">
-                <SelectValue placeholder={table.getState().pagination.pageSize} />
+                <SelectValue placeholder={pageSize} />
               </SelectTrigger>
               <SelectContent side="top">
-                {[10, 20, 30, 40, 50].map((pageSize) => (
+                {pageSizeOptions.map((pageSize) => (
                   <SelectItem key={pageSize} value={`${pageSize}`}>
                     {pageSize}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            per page
+            of {totalItems} entries
           </div>
         </div>
         {data.length > 0 && (
@@ -123,31 +180,36 @@ export function DataTable<TData, TValue>({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
             >
               Previous
             </Button>
             <div className="flex items-center space-x-1">
-              {Array.from({ length: table.getPageCount() }, (_, i) => (
+              {Array.from({ length: totalPages }, (_, i) => (
                 <Button
                   key={i}
-                  variant={table.getState().pagination.pageIndex === i ? "default" : "outline"}
+                  variant={currentPage === i + 1 ? "default" : "outline"}
                   size="sm"
-                  onClick={() => table.setPageIndex(i)}
-                  className={table.getState().pagination.pageIndex === i ? "bg-[#0B4157] text-white" : ""}
+                  onClick={() => handlePageChange(i + 1)}
+                  className={currentPage === i + 1 ? "bg-[#0B4157] text-white" : ""}
                 >
                   {i + 1}
                 </Button>
               )).slice(
-                Math.max(0, table.getState().pagination.pageIndex - 2),
-                Math.min(table.getPageCount(), table.getState().pagination.pageIndex + 3),
+                Math.max(0, currentPage - 3),
+                Math.min(totalPages, currentPage + 2),
               )}
-              {table.getPageCount() > 5 && table.getState().pagination.pageIndex < table.getPageCount() - 3 && (
+              {totalPages > 5 && currentPage < totalPages - 2 && (
                 <span className="px-2">...</span>
               )}
             </div>
-            <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+            >
               Next
             </Button>
           </div>
@@ -156,3 +218,5 @@ export function DataTable<TData, TValue>({
     </div>
   )
 }
+
+

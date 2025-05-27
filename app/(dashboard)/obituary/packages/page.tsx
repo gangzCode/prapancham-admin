@@ -1,5 +1,5 @@
 "use client"
-
+import useSWR from "swr"
 import { useState } from "react"
 import { Plus, Eye, Pencil, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -11,166 +11,163 @@ import { ViewDialog } from "@/components/view-dialog"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
+import { useLanguage } from "@/contexts/language-context"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DataTableColumnHeader } from "@/components/data-table-column-header"
+import { DataTableFacetedFilter } from "@/components/data-table-faceted-filter"
 
-// Sample data for obituary packages
-type ObituaryPackage = {
+type Package = {
   id: string
-  name: string
+  name: {
+    en: { value: string }
+    ta: { value: string }
+    si: { value: string }
+  }
+  description: {
+    en: { value: string }
+    ta: { value: string }
+    si: { value: string }
+  }
   price: number
-  description: string
-  features: string[]
-  status: "active" | "inactive"
-  createdAt: string
+  isActive: boolean
+  addons: string[]
+  isObituary: boolean
+  isRemembarace: boolean
+  isPremium: boolean
+  duration: number
+  isDeleted: boolean
+  wordLimit: number
+  priceList: {
+    country: string
+    currencyCode: string
+    price: number
+    _id: string
+  }[]
+  isTributeVideoUploading: boolean
+  isAdditionalImages: boolean
+  noofAdditionalImages: number
+  noofContectDetails: number
+  noofBgColors: number
+  bgColors: string[]
+  noofPrimaryImageBgFrames: number
+  primaryImageBgFrames: string[]
 }
 
-const obituaryPackages: ObituaryPackage[] = [
-  {
-    id: "1",
-    name: "Basic",
-    price: 99,
-    description: "Essential obituary package for simple remembrance",
-    features: [
-      "Online obituary posting",
-      "Basic photo gallery (5 photos)",
-      "Guest book for condolences",
-      "Share on social media",
-    ],
-    status: "active",
-    createdAt: "2023-01-15",
-  },
-  {
-    id: "2",
-    name: "Standard",
-    price: 199,
-    description: "Enhanced obituary package with additional features",
-    features: [
-      "Online obituary posting",
-      "Extended photo gallery (15 photos)",
-      "Guest book for condolences",
-      "Share on social media",
-      "Featured on homepage for 3 days",
-      "Print-ready obituary PDF",
-    ],
-    status: "active",
-    createdAt: "2023-01-20",
-  },
-  {
-    id: "3",
-    name: "Premium",
-    price: 299,
-    description: "Comprehensive obituary package with all features",
-    features: [
-      "Online obituary posting",
-      "Extended photo gallery (30 photos)",
-      "Guest book for condolences",
-      "Share on social media",
-      "Featured on homepage for 7 days",
-      "Print-ready obituary PDF",
-      "Video tribute (up to 5 minutes)",
-      "Memorial donation collection",
-      "Personalized QR code for sharing",
-    ],
-    status: "active",
-    createdAt: "2023-02-05",
-  },
-  {
-    id: "4",
-    name: "Memorial Plus",
-    price: 399,
-    description: "Premium package with extended memorial features",
-    features: [
-      "Online obituary posting",
-      "Unlimited photo gallery",
-      "Guest book for condolences",
-      "Share on social media",
-      "Featured on homepage for 14 days",
-      "Print-ready obituary PDF",
-      "Video tribute (up to 10 minutes)",
-      "Memorial donation collection",
-      "Personalized QR code for sharing",
-      "Memorial website for 1 year",
-      "Printed memorial cards (25 count)",
-    ],
-    status: "active",
-    createdAt: "2023-03-10",
-  },
-  {
-    id: "5",
-    name: "Legacy",
-    price: 599,
-    description: "Complete legacy package for permanent remembrance",
-    features: [
-      "Online obituary posting",
-      "Unlimited photo gallery",
-      "Guest book for condolences",
-      "Share on social media",
-      "Featured on homepage for 30 days",
-      "Print-ready obituary PDF",
-      "Video tribute (up to 15 minutes)",
-      "Memorial donation collection",
-      "Personalized QR code for sharing",
-      "Permanent memorial website",
-      "Printed memorial cards (50 count)",
-      "Leather-bound memorial book",
-      "Professional obituary writing assistance",
-    ],
-    status: "inactive",
-    createdAt: "2023-04-15",
-  },
-]
 
-export default function ObituaryPackagesPage() {
+const fetcher = async (url: string) => {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+
+  const res = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` }),
+    },
+  })
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch")
+  }
+
+  return res.json().then((json) => ({
+    ...json,
+    packages: json.obituaryRemembarancePackages.map((pkg: any) => ({
+      ...pkg,
+      id: pkg._id,
+      name: {
+        en: pkg.name.en[0],
+        ta: pkg.name.ta[0],
+        si: pkg.name.si[0],
+      },
+      description: {
+        en: pkg.description.en[0],
+        ta: pkg.description.ta[0],
+        si: pkg.description.si[0],
+      },
+      addons: pkg.addons,
+    })),
+  }))
+}
+
+export default function PackagePage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [viewPackage, setViewPackage] = useState<ObituaryPackage | null>(null)
-  const [deletePackage, setDeletePackage] = useState<ObituaryPackage | null>(null)
+  const { t } = useLanguage()
+  const [viewPackage, setViewPackage] = useState<Package | null>(null)
+  const [deletePackage, setDeletePackage] = useState<Package | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+
+  const { data, error, isLoading, mutate } = useSWR(
+    `${process.env.NEXT_PUBLIC_API_URL}/obituaryRemembarance-packages/all?page=${page}&limit=${pageSize}`,
+    fetcher
+  )
 
   const handleAddPackage = () => {
     router.push("/obituary/packages/new")
   }
 
   const handleEditPackage = (packageId: string) => {
-    router.push(`/obituary/packages/edit/${packageId}`)
+    router.push(`/obituary/edit/${packageId}`)
   }
 
   const handleDeletePackage = async () => {
     if (!deletePackage) return
-
     setIsDeleting(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    toast({
-      title: "Package deleted",
-      description: `${deletePackage.name} package has been deleted successfully.`,
-    })
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/packages/${deletePackage.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      })
+      toast({ title: "Package deleted", description: "The package has been deleted successfully." })
+      mutate()
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to delete package." })
+    }
 
     setIsDeleting(false)
     setDeletePackage(null)
   }
 
-  const columns: ColumnDef<ObituaryPackage>[] = [
+  const columns: ColumnDef<Package>[] = [
     {
       accessorKey: "name",
-      header: "Name",
-    },
-    {
-      accessorKey: "price",
-      header: "Price",
-      cell: ({ row }) => <div>${row.original.price}</div>,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Name" type="text" />,
+      cell: ({ row }) => <div className="font-medium max-w-[500px] truncate">{row.original.name.en.value}</div>,
     },
     {
       accessorKey: "description",
-      header: "Description",
-      cell: ({ row }) => <div className="max-w-[300px] truncate">{row.original.description}</div>,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Description" type="text" />,
+      cell: ({ row }) => <div className="font-medium max-w-[300px] truncate">{row.original.description.en.value}</div>,
     },
     {
-      accessorKey: "status",
-      header: "Status",
+      accessorKey: "price",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Price" type="number" />,
+      cell: ({ row }) => <div className="font-medium">{row.original.price}</div>,
+    },
+    {
+      accessorKey: "isActive",
+      header: ({ column }) => (
+        <div className="flex items-center space-x-2">
+          <DataTableFacetedFilter
+            column={column}
+            title="Status"
+            options={[
+              { label: "Active", value: "true" },
+              { label: "Inactive", value: "false" },
+            ]}
+          />
+        </div>
+      ),
       cell: ({ row }) => (
-        <Badge variant={row.original.status === "active" ? "default" : "secondary"}>{row.original.status}</Badge>
+        <Badge variant={row.original.isActive ? "default" : "secondary"}>
+          {row.original.isActive ? "Active" : "Inactive"}
+        </Badge>
       ),
     },
     {
@@ -197,8 +194,8 @@ export default function ObituaryPackagesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Obituary Packages"
-        description="Manage obituary packages offered to users"
+        title={t("packages")}
+        description="Manage obituary packages"
         action={{
           label: "Add Package",
           onClick: handleAddPackage,
@@ -206,55 +203,137 @@ export default function ObituaryPackagesPage() {
         }}
       />
 
-      <DataTable columns={columns} data={obituaryPackages} searchKey="name" searchPlaceholder="Search packages..." />
+      <DataTable
+        columns={columns}
+        data={data?.packages || []}
+        searchKey="name"
+        searchPlaceholder="Search Packages..."
+        currentPage={page}
+        totalPages={data?.pagination.totalPages || 1}
+        totalItems={data?.pagination.totalItems || 0}
+        pageSize={pageSize}
+        onPageChange={(newPage) => setPage(newPage)}
+        onPageSizeChange={(newSize) => setPageSize(newSize)}
+      />
 
-      {/* View Package Dialog */}
-      <ViewDialog
-        open={!!viewPackage}
-        onOpenChange={(open) => !open && setViewPackage(null)}
-        title={viewPackage?.name || "Package Details"}
-      >
+      <ViewDialog open={!!viewPackage} onOpenChange={(open) => !open && setViewPackage(null)} title="Package Details">
         {viewPackage && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-8">
+            <Tabs defaultValue="en" className="w-full">
+              <TabsList>
+                <TabsTrigger value="en">English</TabsTrigger>
+                <TabsTrigger value="ta">Tamil</TabsTrigger>
+                <TabsTrigger value="si">Sinhala</TabsTrigger>
+              </TabsList>
+
+              {["en", "ta", "si"].map((lang) => (
+                <TabsContent key={lang} value={lang} className="space-y-4">
+                  <div className="space-y-2 py-4">
+                    <h3 className="font-medium text-sm text-muted-foreground">Name</h3>
+                    <p className="font-medium">{viewPackage.name[lang as keyof typeof viewPackage.name].value}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h3 className="font-medium text-sm text-muted-foreground">Description</h3>
+                    <p className="whitespace-pre-wrap">{viewPackage.description[lang as keyof typeof viewPackage.description].value}</p>
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+
+            <div className="grid grid-cols-3 gap-4 pt-4">
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Price</h3>
-                <p className="text-lg font-semibold">${viewPackage.price}</p>
+                <p>{viewPackage.price}</p>
               </div>
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Status</h3>
-                <Badge variant={viewPackage.status === "active" ? "default" : "secondary"}>{viewPackage.status}</Badge>
+                <Badge variant={viewPackage.isActive === true ? "default" : "secondary"}>
+                  {viewPackage.isActive ? "Active" : "Inactive"}
+                </Badge>
+              </div>
+              <div>
+                <h3 className="font-medium text-sm text-muted-foreground">Duration</h3>
+                <p>{viewPackage.duration} days</p>
               </div>
             </div>
 
-            <div>
-              <h3 className="font-medium text-sm text-muted-foreground">Description</h3>
-              <p>{viewPackage.description}</p>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <h3 className="font-medium text-sm text-muted-foreground">Word Limit</h3>
+                <p>{viewPackage.wordLimit}</p>
+              </div>
+              <div>
+                <h3 className="font-medium text-sm text-muted-foreground">Is Obituary</h3>
+                <p>{viewPackage.isObituary ? "Yes" : "No"}</p>
+              </div>
+              <div>
+                <h3 className="font-medium text-sm text-muted-foreground">Is Remembrance</h3>
+                <p>{viewPackage.isRemembarace ? "Yes" : "No"}</p>
+              </div>
             </div>
 
-            <div>
-              <h3 className="font-medium text-sm text-muted-foreground">Features</h3>
-              <ul className="list-disc pl-5 mt-2 space-y-1">
-                {viewPackage.features.map((feature, index) => (
-                  <li key={index}>{feature}</li>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <h3 className="font-medium text-sm text-muted-foreground">Is Premium</h3>
+                <p>{viewPackage.isPremium ? "Yes" : "No"}</p>
+              </div>
+              <div>
+                <h3 className="font-medium text-sm text-muted-foreground">Additional Images</h3>
+                <p>{viewPackage.isAdditionalImages ? `Yes (${viewPackage.noofAdditionalImages})` : "No"}</p>
+              </div>
+              <div>
+                <h3 className="font-medium text-sm text-muted-foreground">Contact Details</h3>
+                <p>{viewPackage.noofContectDetails}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="font-medium text-sm text-muted-foreground">Add-ons</h3>
+              <ul className="list-disc pl-5">
+                {viewPackage.addons.map((addon, index) => (
+                  <li key={index}>{addon}</li>
                 ))}
               </ul>
             </div>
 
-            <div>
-              <h3 className="font-medium text-sm text-muted-foreground">Created At</h3>
-              <p>{viewPackage.createdAt}</p>
+            <div className="space-y-4">
+              <h3 className="font-medium text-sm text-muted-foreground">Price List</h3>
+              <ul className="list-disc pl-5">
+                {viewPackage.priceList.map((priceItem) => (
+                  <li key={priceItem._id}>
+                    {priceItem.country} ({priceItem.currencyCode}): {priceItem.price}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="font-medium text-sm text-muted-foreground">Background Colors</h3>
+              <ul className="list-disc pl-5">
+                {viewPackage.bgColors.map((color, index) => (
+                  <li key={index}>{color}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="font-medium text-sm text-muted-foreground">Primary Image Background Frames</h3>
+              <ul className="list-disc pl-5">
+                {viewPackage.primaryImageBgFrames.map((frame, index) => (
+                  <li key={index}>{frame}</li>
+                ))}
+              </ul>
             </div>
           </div>
         )}
       </ViewDialog>
 
-      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={!!deletePackage}
         onOpenChange={(open) => !open && setDeletePackage(null)}
         title="Delete Package"
-        description={`Are you sure you want to delete the "${deletePackage?.name}" package? This action cannot be undone.`}
+        description="Are you sure you want to delete this package? This action cannot be undone."
         onConfirm={handleDeletePackage}
         loading={isDeleting}
       />
