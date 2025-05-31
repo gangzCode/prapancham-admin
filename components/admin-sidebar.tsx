@@ -29,6 +29,8 @@ import {
   FileUser,
   Flower,
   IdCard,
+  Map,
+  Grid,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -57,10 +59,10 @@ export function AdminSidebar() {
   const { t } = useLanguage()
   const { open, toggleSidebar } = useSidebar()
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
-    obituary: true,
-    advertisement: true,
-    news: true,
-    tribute: true, // Add tribute menu state
+    obituary: false,
+    advertisement: false,
+    news: false,
+    tribute: false,
   })
 
   const toggleMenu = (menu: string) => {
@@ -71,7 +73,6 @@ export function AdminSidebar() {
   }
 
   const handleLogout = () => {
-    // In a real app, this would clear auth tokens/cookies
     router.push("/login")
   }
 
@@ -215,6 +216,7 @@ export function AdminSidebar() {
                     </Link>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
+
                 <SidebarMenuSubItem>
                   <SidebarMenuSubButton asChild isActive={isActive("/advertisement/adtype")}>
                     <Link href="/advertisement/adtype">
@@ -223,6 +225,16 @@ export function AdminSidebar() {
                     </Link>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
+
+                <SidebarMenuSubItem>
+                  <SidebarMenuSubButton asChild isActive={isActive("/advertisement/adcategory")}>
+                    <Link href="/advertisement/adcategory">
+                      <Grid className="mr-2 h-4 w-4" />
+                      {t("ad categories")}
+                    </Link>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+
               </SidebarMenuSub>
             </CollapsibleContent>
           </Collapsible>
@@ -335,6 +347,16 @@ export function AdminSidebar() {
               <Link href="/faq">
                 <HelpCircle className="mr-2 h-5 w-5" />
                 <span>{t("faq")}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          {/* Country Menu */}
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={isActive("/country")} tooltip={t("country")}>
+              <Link href="/country">
+                <Map className="mr-2 h-5 w-5" />
+                <span>{t("Country")}</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
