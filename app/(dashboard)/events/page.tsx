@@ -16,6 +16,7 @@ import { useLanguage } from "@/contexts/language-context"
 import { format } from "date-fns"
 import { DataTableColumnHeader } from "@/components/data-table-column-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DataTableFacetedFilter } from "@/components/data-table-faceted-filter"
 
 type MultilingualField = {
   name: string
@@ -43,7 +44,7 @@ type Event = {
   registeredPeopleCount?: string
   isDeleted: boolean
   isActive?: boolean
-  expiryDate?: string
+  expiryDate: string
   uploadedDate?: string
   createdAt: string
   updatedAt: string
@@ -75,7 +76,9 @@ const fetcher = async (url: string): Promise<{ events: Event[]; pagination?: any
         si: ev.description?.si?.[0]?.value || "",
       },
       eventDate: ev.eventDate,
+      expiryDate: ev.expiryDate,
       isFeatured: ev.isFeatured,
+      isActive: ev.isActive,
       image: ev.image,
       featuredEventImage: ev.featuredEventImage,
       eventLink: ev.eventLink,
@@ -204,6 +207,34 @@ export default function EventsPage() {
       ),
     },
     {
+      accessorKey: "isActive",
+      header: ({ column }) => (
+        <div className="flex items-center space-x-2">
+          <DataTableFacetedFilter
+            column={column}
+            title="Status"
+            options={[
+              { label: "Active", value: "true" },
+              { label: "Inactive", value: "false" },
+            ]}
+          />
+        </div>
+      ),
+      cell: ({ row }) => (
+        <Badge
+          variant={row.original.isActive ? "default" : "secondary"}
+          className="cursor-pointer"
+        // onClick={() => handleOpenStatusChange(row.original)}
+        >
+          {row.original.isActive ? "Active" : "Inactive"}
+        </Badge>
+      ),
+      enableSorting: true,
+      filterFn: (row, id, value) => {
+        return value.includes(String(row.getValue(id)));
+      },
+    },
+    {
       id: "actions",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
@@ -329,23 +360,29 @@ export default function EventsPage() {
                 </div>
               </div>
               <div>
+                <h3 className="font-medium text-sm text-muted-foreground">Expiry Date</h3>
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <p>{formatDate(viewEvent.expiryDate)}</p>
+                </div>
+              </div>
+              <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Featured</h3>
                 <Badge variant={viewEvent.isFeatured ? "default" : "secondary"}>
                   {viewEvent.isFeatured ? "Yes" : "No"}
                 </Badge>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h3 className="font-medium text-sm text-muted-foreground">Registered People</h3>
-                <p>{viewEvent.registeredPeopleCount || "0"}</p>
-              </div>
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Status</h3>
                 <Badge variant={viewEvent.isDeleted ? "destructive" : "default"}>
                   {viewEvent.isDeleted ? "Deleted" : "Active"}
                 </Badge>
+              </div>
+
+              <div>
+                <h3 className="font-medium text-sm text-muted-foreground">Registered People</h3>
+                <p>{viewEvent.registeredPeopleCount || "0"}</p>
               </div>
             </div>
 
@@ -364,7 +401,7 @@ export default function EventsPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            {/* <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Created At</h3>
                 <p>{formatDate(viewEvent.createdAt)}</p>
@@ -373,7 +410,7 @@ export default function EventsPage() {
                 <h3 className="font-medium text-sm text-muted-foreground">Updated At</h3>
                 <p>{formatDate(viewEvent.updatedAt)}</p>
               </div>
-            </div>
+            </div> */}
           </div>
         )}
       </ViewDialog>

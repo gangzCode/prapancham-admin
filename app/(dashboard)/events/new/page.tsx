@@ -48,7 +48,9 @@ const eventFormSchema = z.object({
     image: z.any().refine(val => val instanceof File, { message: "Event image is required." }),
     featuredEventImage: z.any().optional(),
     eventLink: z.string().url({ message: "Please enter a valid URL" }).optional().or(z.literal("")),
-    registeredPeopleCount: z.string().optional(),
+   registeredPeopleCount: z .preprocess((val) => (val === "" ? undefined : Number(val)), z.number().nonnegative().optional())
+
+    
 })
 
 type EventFormValues = z.infer<typeof eventFormSchema>
@@ -147,7 +149,7 @@ export default function NewEventPage() {
                                 name="name"
                                 render={() => (
                                     <FormItem>
-                                        <FormLabel>Event Name</FormLabel>
+                                        {/* <FormLabel>Event Name</FormLabel> */}
                                         <Tabs value={langTab} onValueChange={v => setLangTab(v as "en" | "ta" | "si")} className="mb-2">
                                             <TabsList>
                                                 <TabsTrigger value="en">English</TabsTrigger>
@@ -181,13 +183,13 @@ export default function NewEventPage() {
                                 name="description"
                                 render={() => (
                                     <FormItem>
-                                        <FormLabel>Description</FormLabel>
+                                        {/* <FormLabel>Description</FormLabel> */}
                                         <Tabs value={langTab} onValueChange={v => setLangTab(v as "en" | "ta" | "si")} className="mb-2">
-                                            <TabsList>
+                                            {/* <TabsList>
                                                 <TabsTrigger value="en">English</TabsTrigger>
                                                 <TabsTrigger value="ta">Tamil</TabsTrigger>
                                                 <TabsTrigger value="si">Sinhala</TabsTrigger>
-                                            </TabsList>
+                                            </TabsList> */}
                                             {(["en", "ta", "si"] as const).map((lang) => (
                                                 <TabsContent key={lang} value={lang}>
                                                     <FormField
@@ -314,6 +316,8 @@ export default function NewEventPage() {
                                     )}
                                 />
 
+
+
                                 <FormField
                                     control={form.control}
                                     name="isFeatured"
@@ -330,6 +334,26 @@ export default function NewEventPage() {
                                     )}
                                 />
                             </div>
+                            <FormField
+                                control={form.control}
+                                name="eventLink"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Event Link</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="url"
+                                                placeholder="https://example.com/event"
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Optional link to an external page for the currently active event.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
                             <FormField
                                 control={form.control}

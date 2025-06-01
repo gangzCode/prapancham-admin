@@ -42,10 +42,10 @@ export default function NewsletterPage() {
     const [deleteNewsletter, setDeleteNewsletter] = useState<Newsletter | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
     const [page, setPage] = useState(1)
-    const [pageSize, setPageSize] = useState(10)
+    const [pageSize, setPageSize] = useState(5)
 
     const { data, error, isLoading, mutate } = useSWR(
-        `${process.env.NEXT_PUBLIC_API_URL}/news-letters`,
+        `${process.env.NEXT_PUBLIC_API_URL}/news-letters?page=${page}&limit=${pageSize}`,
         fetcher
     )
 

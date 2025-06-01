@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent } from "@/components/ui/card"
+import { PageHeader } from "@/components/page-header"
+import { Switch } from "@/components/ui/switch"
 
 type LangKey = "en" | "ta" | "si"
 
@@ -37,8 +39,9 @@ export default function EditCountryPage({ params }: { params: Promise<{ id: stri
     const [preview, setPreview] = useState<string>("")
     const [loading, setLoading] = useState(false)
     const [tab, setTab] = useState<LangKey>("en")
+    const [isActive, setIsActive] = useState(true)
 
-    // Unwrap params using React.use()
+
     const { id } = use(params)
 
     useEffect(() => {
@@ -51,7 +54,9 @@ export default function EditCountryPage({ params }: { params: Promise<{ id: stri
                     ta: [{ name: "நாடு பெயர்", value: data.name?.ta?.[0]?.value || "" }],
                     si: [{ name: "රටේ නම", value: data.name?.si?.[0]?.value || "" }],
                 })
-                setPreview(data.image || "")
+                setPreview(data.image || ""),
+                setIsActive(data.isActive)
+
             } catch {
                 toast({ title: "Error", description: "Failed to load country." })
             }
@@ -82,6 +87,8 @@ export default function EditCountryPage({ params }: { params: Promise<{ id: stri
             const formData = new FormData()
             formData.append("countryId", id)
             formData.append("name", JSON.stringify(names))
+            formData.append("isActive", JSON.stringify(isActive))
+
             if (image) formData.append("image", image)
 
             const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
@@ -104,8 +111,12 @@ export default function EditCountryPage({ params }: { params: Promise<{ id: stri
     }
 
     return (
-        <div className="max-w-2xl mx-auto py-8">
-            <h1 className="text-2xl font-bold mb-6">Edit Country</h1>
+        <div className="space-y-6">
+            <PageHeader
+                title="Edit Country"
+                description="Update country with its details and image."
+                href="/country"
+            />
             <form onSubmit={handleSubmit} className="space-y-8">
                 <Card>
                     <CardContent className="pt-6 space-y-6">
@@ -128,6 +139,16 @@ export default function EditCountryPage({ params }: { params: Promise<{ id: stri
                                 </TabsContent>
                             ))}
                         </Tabs>
+                        <div className="flex items-center gap-4">
+                            <Label htmlFor="status" className="mb-0">Active Status</Label>
+                            <Switch
+                                id="status"
+                                checked={isActive}
+                                onCheckedChange={setIsActive}
+                            />
+                            <span>{isActive ? "Active" : "Inactive"}</span>
+                        </div>
+
                         <div>
                             <Label className="block mb-2">Image</Label>
                             <Input type="file" accept="image/*" onChange={handleImageChange} />

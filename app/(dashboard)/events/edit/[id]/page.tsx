@@ -44,6 +44,7 @@ const eventFormSchema = z.object({
         required_error: "Expiry date is required.",
     }),
     isFeatured: z.boolean().default(false),
+    isActive: z.boolean().default(true),
     image: z.any().refine(val => val instanceof File || typeof val === "string", { message: "Event image is required." }),
     featuredEventImage: z.any().optional(),
     eventLink: z.string().url({ message: "Please enter a valid URL" }).optional().or(z.literal("")),
@@ -88,6 +89,7 @@ export default function EditEventPage() {
                     eventDate: data.eventDate ? new Date(data.eventDate) : undefined,
                     expiryDate: data.expiryDate ? new Date(data.expiryDate) : undefined,
                     isFeatured: !!data.isFeatured,
+                    isActive: !!data.isActive,
                     image: data.image || "",
                     featuredEventImage: data.featuredEventImage || "",
                     eventLink: data.eventLink || "",
@@ -122,11 +124,11 @@ export default function EditEventPage() {
             formData.append("eventDate", values.eventDate instanceof Date ? values.eventDate.toISOString() : values.eventDate)
             formData.append("expiryDate", values.expiryDate instanceof Date ? values.expiryDate.toISOString() : values.expiryDate)
             formData.append("isFeatured", String(values.isFeatured))
+            formData.append("isActive", String(values.isActive))
             formData.append("eventLink", values.eventLink || "")
             formData.append("registeredPeopleCount", values.registeredPeopleCount || "")
             formData.append("eventId", `${params.id}`)
 
-            // Only append file if it's a File, otherwise skip (assume string is URL)
             if (values.image instanceof File) {
                 formData.append("image", values.image)
             }
@@ -181,7 +183,7 @@ export default function EditEventPage() {
                                 name="name"
                                 render={() => (
                                     <FormItem>
-                                        <FormLabel>Event Name</FormLabel>
+                                        {/* <FormLabel>Event Name</FormLabel> */}
                                         <Tabs value={langTab} onValueChange={v => setLangTab(v as "en" | "ta" | "si")} className="mb-2">
                                             <TabsList>
                                                 <TabsTrigger value="en">English</TabsTrigger>
@@ -215,13 +217,13 @@ export default function EditEventPage() {
                                 name="description"
                                 render={() => (
                                     <FormItem>
-                                        <FormLabel>Description</FormLabel>
+                                        {/* <FormLabel>Description</FormLabel> */}
                                         <Tabs value={langTab} onValueChange={v => setLangTab(v as "en" | "ta" | "si")} className="mb-2">
-                                            <TabsList>
+                                            {/* <TabsList>
                                                 <TabsTrigger value="en">English</TabsTrigger>
                                                 <TabsTrigger value="ta">Tamil</TabsTrigger>
                                                 <TabsTrigger value="si">Sinhala</TabsTrigger>
-                                            </TabsList>
+                                            </TabsList> */}
                                             {(["en", "ta", "si"] as const).map((lang) => (
                                                 <TabsContent key={lang} value={lang}>
                                                     <FormField
@@ -335,21 +337,6 @@ export default function EditEventPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <FormField
                                     control={form.control}
-                                    name="registeredPeopleCount"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Registered People Count (Optional)</FormLabel>
-                                            <FormControl>
-                                                <Input type="number" min="0" placeholder="0" {...field} />
-                                            </FormControl>
-                                            <FormDescription>The number of people registered for this event.</FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
                                     name="isFeatured"
                                     render={({ field }) => (
                                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
@@ -363,7 +350,61 @@ export default function EditEventPage() {
                                         </FormItem>
                                     )}
                                 />
+                                <FormField
+                                    control={form.control}
+                                    name="isActive"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                            <div className="space-y-0.5">
+                                                <FormLabel className="text-base">Active Status</FormLabel>
+                                                <FormDescription>
+                                                    Toggle whether this event is currently active or not.
+                                                </FormDescription>
+                                            </div>
+                                            <FormControl>
+                                                <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="registeredPeopleCount"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Registered People Count (Optional)</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" min="0" placeholder="0" {...field} />
+                                            </FormControl>
+                                            <FormDescription>The number of people registered for this event.</FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+
                             </div>
+                            <FormField
+                                control={form.control}
+                                name="eventLink"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Event Link</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="url"
+                                                placeholder="https://example.com/event"
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Optional link to an external page for the currently active event.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
                             <FormField
                                 control={form.control}
@@ -388,6 +429,7 @@ export default function EditEventPage() {
                                     </FormItem>
                                 )}
                             />
+
 
                             {isFeatured && (
                                 <FormField

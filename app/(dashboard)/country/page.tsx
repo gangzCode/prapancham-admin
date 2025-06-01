@@ -225,14 +225,14 @@ export default function CountryPage() {
                                     {viewCountry.isActive ? "Active" : "Inactive"}
                                 </Badge>
                             </div>
-                            <div>
+                            {/* <div>
                                 <h3 className="font-medium text-sm text-muted-foreground">Deleted</h3>
                                 <Badge variant={viewCountry.isDeleted ? "destructive" : "default"}>
                                     {viewCountry.isDeleted ? "Yes" : "No"}
                                 </Badge>
-                            </div>
+                            </div> */}
                         </div>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                        {/* <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
                                 <h3 className="font-medium text-sm text-muted-foreground">Created At</h3>
                                 <p>{new Date(viewCountry.createdAt).toLocaleString()}</p>
@@ -241,7 +241,7 @@ export default function CountryPage() {
                                 <h3 className="font-medium text-sm text-muted-foreground">Updated At</h3>
                                 <p>{new Date(viewCountry.updatedAt).toLocaleString()}</p>
                             </div>
-                        </div>
+                        </div> */}
                     </div>
                 )}
             </ViewDialog>
