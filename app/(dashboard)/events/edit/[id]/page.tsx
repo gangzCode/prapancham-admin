@@ -74,7 +74,7 @@ export default function EditEventPage() {
             setLoading(true)
             try {
                 const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/event/update/${params.id}`, {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/event/${params.id}`, {
                     headers: {
                         ...(token && { Authorization: `Bearer ${token}` }),
                     },
@@ -119,6 +119,7 @@ export default function EditEventPage() {
             const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
             const formData = new FormData()
 
+            formData.append("eventId", `${params.id}`);
             formData.append("name", JSON.stringify(values.name))
             formData.append("description", JSON.stringify(values.description))
             formData.append("eventDate", values.eventDate instanceof Date ? values.eventDate.toISOString() : values.eventDate)
@@ -136,7 +137,7 @@ export default function EditEventPage() {
                 formData.append("featuredEventImage", values.featuredEventImage)
             }
 
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/event`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/event/update`, {
                 method: "POST",
                 headers: {
                     ...(token && { Authorization: `Bearer ${token}` }),
