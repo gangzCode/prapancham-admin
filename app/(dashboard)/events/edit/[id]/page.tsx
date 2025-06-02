@@ -74,7 +74,7 @@ export default function EditEventPage() {
             setLoading(true)
             try {
                 const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/event/${params.id}`, {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/event/update/${params.id}`, {
                     headers: {
                         ...(token && { Authorization: `Bearer ${token}` }),
                     },

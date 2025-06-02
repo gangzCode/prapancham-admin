@@ -110,7 +110,7 @@ export default function EventsPage() {
   }
 
   const handleEditEvent = (eventId: string) => {
-    router.push(`/events/update/${eventId}`)
+    router.push(`/events/edit/${eventId}`)
   }
 
   const handleDeleteEvent = async () => {
