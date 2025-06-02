@@ -90,8 +90,8 @@ export default function EditEventPage() {
                     expiryDate: data.expiryDate ? new Date(data.expiryDate) : undefined,
                     isFeatured: !!data.isFeatured,
                     isActive: !!data.isActive,
-                    image: data.image || undefined,
-                    featuredEventImage: data.featuredEventImage || undefined,
+                    image: data.image || "",
+                    featuredEventImage: data.featuredEventImage || "",
                     eventLink: data.eventLink || "",
                     registeredPeopleCount: data.registeredPeopleCount ? String(data.registeredPeopleCount) : "",
                 })
@@ -414,15 +414,16 @@ export default function EditEventPage() {
                                     <FormItem>
                                         <FormLabel>Event Image</FormLabel>
                                         <FormControl>
-                                            {typeof field.value === "string" && (
-                                                    <img src={field.value} alt="Current image" className="mb-2 max-w-full h-auto" />
-                                                )}
-                                                <ImageUpload
-                                                    value={field.value instanceof File ? field.value : null}
-                                                    onChange={file => field.onChange(file)}
-                                                    previewHeight={200}
-                                                    previewWidth={400}
-                                                />
+                                            <ImageUpload
+                                                value={
+                                                    field.value instanceof File
+                                                        ? field.value
+                                                        : null
+                                                }
+                                                onChange={file => field.onChange(file)}
+                                                previewHeight={200}
+                                                previewWidth={400}
+                                            />
                                         </FormControl>
                                         <FormDescription>The main image for the event.</FormDescription>
                                         <FormMessage />
@@ -439,11 +440,12 @@ export default function EditEventPage() {
                                         <FormItem>
                                             <FormLabel>Featured Event Image (Optional)</FormLabel>
                                             <FormControl>
-                                            {typeof field.value === "string" && (
-                                                    <img src={field.value} alt="Current image" className="mb-2 max-w-full h-auto" />
-                                                )}
                                                 <ImageUpload
-                                                    value={field.value instanceof File ? field.value : null}
+                                                    value={
+                                                        field.value instanceof File
+                                                            ? field.value
+                                                            : null
+                                                    }
                                                     onChange={file => field.onChange(file)}
                                                     previewHeight={200}
                                                     previewWidth={400}
