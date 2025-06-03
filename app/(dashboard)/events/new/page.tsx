@@ -215,105 +215,111 @@ export default function NewEventPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <FormField
                                     control={form.control}
-                                    name="eventDate"
-                                    render={({ field }) => (
-                                        <FormItem className="flex flex-col">
-                                            <FormLabel>Event Date</FormLabel>
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                    <FormControl>
-                                                        <Button
-                                                            variant={"outline"}
-                                                            className={cn(
-                                                                "w-full pl-3 text-left font-normal",
-                                                                !field.value && "text-muted-foreground",
-                                                            )}
-                                                        >
-                                                            {field.value ? format(field.value, "PPP p") : <span>Pick a date and time</span>}
-                                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                        </Button>
-                                                    </FormControl>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0" align="start">
-                                                    {/* <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /> */}
-                                                    <Input
-                                                        id="date"
-                                                        name="date"
-                                                        type="date"
-                                                        value={field.value ? format(field.value, "yyyy-MM-dd") : ""}
-                                                        onChange={field.onChange}
-                                                        required
-                                                    />
-                                                    <div className="p-3 border-t border-border">
-                                                        <Input
-                                                            type="time"
-                                                            onChange={(e) => {
-                                                                const date = new Date(field.value || new Date())
-                                                                const [hours, minutes] = e.target.value.split(":")
-                                                                date.setHours(Number.parseInt(hours, 10), Number.parseInt(minutes, 10))
-                                                                field.onChange(date)
-                                                            }}
-                                                            defaultValue={field.value ? format(field.value, "HH:mm") : ""}
-                                                        />
-                                                    </div>
-                                                </PopoverContent>
-                                            </Popover>
-                                            <FormDescription>The date and time when the event will take place.</FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
+                                name="eventDate"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-col">
+                                    <FormLabel>Event Date</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button
+                                            variant="outline"
+                                            className={cn(
+                                                "w-full pl-3 text-left font-normal",
+                                                !field.value && "text-muted-foreground"
+                                            )}
+                                            >
+                                            {field.value ? format(new Date(field.value), "PPP p") : <span>Pick a date and time</span>}
+                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                            </Button>
+                                        </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                        <Input
+                                            type="date"
+                                            value={field.value ? format(new Date(field.value), "yyyy-MM-dd") : ""}
+                                            onChange={(e) => {
+                                            const [year, month, day] = e.target.value.split("-");
+                                            const current = field.value ? new Date(field.value) : new Date();
+                                            current.setFullYear(+year, +month - 1, +day);
+                                            field.onChange(new Date(current));
+                                            }}
+                                            required
+                                        />
+                                        <div className="p-3 border-t border-border">
+                                            <Input
+                                            type="time"
+                                            value={field.value ? format(new Date(field.value), "HH:mm") : ""}
+                                            onChange={(e) => {
+                                                const [hours, minutes] = e.target.value.split(":");
+                                                const current = field.value ? new Date(field.value) : new Date();
+                                                current.setHours(+hours, +minutes);
+                                                field.onChange(new Date(current));
+                                            }}
+                                            />
+                                        </div>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormDescription>The date and time when the event will take place.</FormDescription>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
                                 />
+
 
                                 <FormField
                                     control={form.control}
                                     name="expiryDate"
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
-                                            <FormLabel>Expiry Date</FormLabel>
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                    <FormControl>
-                                                        <Button
-                                                            variant={"outline"}
-                                                            className={cn(
-                                                                "w-full pl-3 text-left font-normal",
-                                                                !field.value && "text-muted-foreground",
-                                                            )}
-                                                        >
-                                                            {field.value ? format(field.value, "PPP p") : <span>Pick expiry date and time</span>}
-                                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                        </Button>
-                                                    </FormControl>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0" align="start">
-                                                    {/* <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /> */}
-                                                    <Input
-                                                        id="expiryDate"
-                                                        name="expiryDate"
-                                                        type="date"
-                                                        value={field.value ? format(field.value, "yyyy-MM-dd") : ""}
-                                                        onChange={field.onChange}
-                                                        required
-                                                    />
-                                                    <div className="p-3 border-t border-border">
-                                                        <Input
-                                                            type="time"
-                                                            onChange={(e) => {
-                                                                const date = new Date(field.value || new Date())
-                                                                const [hours, minutes] = e.target.value.split(":")
-                                                                date.setHours(Number.parseInt(hours, 10), Number.parseInt(minutes, 10))
-                                                                field.onChange(date)
-                                                            }}
-                                                            defaultValue={field.value ? format(field.value, "HH:mm") : ""}
-                                                        />
-                                                    </div>
-                                                </PopoverContent>
-                                            </Popover>
-                                            <FormDescription>The date and time when the event will expire.</FormDescription>
-                                            <FormMessage />
+                                        <FormLabel>Expiry Date</FormLabel>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                variant="outline"
+                                                className={cn(
+                                                    "w-full pl-3 text-left font-normal",
+                                                    !field.value && "text-muted-foreground"
+                                                )}
+                                                >
+                                                {field.value ? format(new Date(field.value), "PPP p") : <span>Pick expiry date and time</span>}
+                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                            <Input
+                                                type="date"
+                                                value={field.value ? format(new Date(field.value), "yyyy-MM-dd") : ""}
+                                                onChange={(e) => {
+                                                const [year, month, day] = e.target.value.split("-");
+                                                const date = field.value ? new Date(field.value) : new Date();
+                                                date.setFullYear(+year, +month - 1, +day);
+                                                field.onChange(new Date(date));
+                                                }}
+                                                required
+                                            />
+                                            <div className="p-3 border-t border-border">
+                                                <Input
+                                                type="time"
+                                                value={field.value ? format(new Date(field.value), "HH:mm") : ""}
+                                                onChange={(e) => {
+                                                    const [hours, minutes] = e.target.value.split(":");
+                                                    const date = field.value ? new Date(field.value) : new Date();
+                                                    date.setHours(+hours, +minutes);
+                                                    field.onChange(new Date(date));
+                                                }}
+                                                />
+                                            </div>
+                                            </PopoverContent>
+                                        </Popover>
+                                        <FormDescription>The date and time when the event will expire.</FormDescription>
+                                        <FormMessage />
                                         </FormItem>
                                     )}
                                 />
+                            
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
