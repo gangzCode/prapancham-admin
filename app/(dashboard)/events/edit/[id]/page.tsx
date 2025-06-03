@@ -119,7 +119,6 @@ export default function EditEventPage() {
             const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
             const formData = new FormData()
 
-            formData.append("eventId", `${params.id}`);
             formData.append("name", JSON.stringify(values.name))
             formData.append("description", JSON.stringify(values.description))
             formData.append("eventDate", values.eventDate instanceof Date ? values.eventDate.toISOString() : values.eventDate)

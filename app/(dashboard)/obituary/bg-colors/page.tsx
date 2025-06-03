@@ -82,10 +82,10 @@ export default function BgColorssPage() {
               ...(token && { Authorization: `Bearer ${token}` }),
             },
           })
-          toast({ title: "Background-Color deleted", description: "The Background-Color has been deleted successfully." })
+          toast({ title: "Background-Color deleted", description: "The background color has been deleted successfully." })
           mutate()
         } catch (e) {
-          toast({ title: "Error", description: "Failed to delete Background-Color." })
+          toast({ title: "Error", description: "Failed to delete background color." })
         }
     
         setIsDeleting(false)

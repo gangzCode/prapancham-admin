@@ -37,9 +37,6 @@ type FAQ = {
   isDeleted: boolean
 }
 
-
-
-
 const fetcher = async (url: string) => {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
 
