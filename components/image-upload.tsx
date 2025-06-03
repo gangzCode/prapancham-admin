@@ -5,7 +5,7 @@ import { useDropzone } from "react-dropzone"
 import { cn } from "@/lib/utils"
 
 interface ImageUploadProps {
-    value: File | null
+    value: File | string | null
     onChange: (value: File | null) => void
     previewWidth?: number
     previewHeight?: number
@@ -15,10 +15,12 @@ export function ImageUpload({ value, onChange, previewWidth = 150, previewHeight
     const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
     useEffect(() => {
-        if (value) {
+        if (value instanceof File) {
             const url = URL.createObjectURL(value)
             setPreviewUrl(url)
             return () => URL.revokeObjectURL(url)
+        } else if (typeof value === "string") {
+            setPreviewUrl(value)
         } else {
             setPreviewUrl(null)
         }

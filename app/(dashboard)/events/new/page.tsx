@@ -48,9 +48,9 @@ const eventFormSchema = z.object({
     image: z.any().refine(val => val instanceof File, { message: "Event image is required." }),
     featuredEventImage: z.any().optional(),
     eventLink: z.string().url({ message: "Please enter a valid URL" }).optional().or(z.literal("")),
-   registeredPeopleCount: z .preprocess((val) => (val === "" ? undefined : Number(val)), z.number().nonnegative().optional())
+    registeredPeopleCount: z.preprocess((val) => (val === "" ? undefined : Number(val)), z.number().nonnegative().optional())
 
-    
+
 })
 
 type EventFormValues = z.infer<typeof eventFormSchema>
@@ -235,7 +235,15 @@ export default function NewEventPage() {
                                                     </FormControl>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-auto p-0" align="start">
-                                                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                                                    {/* <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /> */}
+                                                    <Input
+                                                        id="date"
+                                                        name="date"
+                                                        type="date"
+                                                        value={field.value ? format(field.value, "yyyy-MM-dd") : ""}
+                                                        onChange={field.onChange}
+                                                        required
+                                                    />
                                                     <div className="p-3 border-t border-border">
                                                         <Input
                                                             type="time"
@@ -278,7 +286,15 @@ export default function NewEventPage() {
                                                     </FormControl>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-auto p-0" align="start">
-                                                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                                                    {/* <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /> */}
+                                                    <Input
+                                                        id="expiryDate"
+                                                        name="expiryDate"
+                                                        type="date"
+                                                        value={field.value ? format(field.value, "yyyy-MM-dd") : ""}
+                                                        onChange={field.onChange}
+                                                        required
+                                                    />
                                                     <div className="p-3 border-t border-border">
                                                         <Input
                                                             type="time"
@@ -308,7 +324,13 @@ export default function NewEventPage() {
                                         <FormItem>
                                             <FormLabel>Registered People Count (Optional)</FormLabel>
                                             <FormControl>
-                                                <Input type="number" min="0" placeholder="0" {...field} />
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    placeholder="0"
+                                                    {...field}
+                                                    value={field.value ?? ""}
+                                                />
                                             </FormControl>
                                             <FormDescription>The number of people registered for this event.</FormDescription>
                                             <FormMessage />

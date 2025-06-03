@@ -14,6 +14,9 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { useLanguage } from "@/contexts/language-context"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 type adCategory = {
     _id: string
@@ -57,18 +60,114 @@ export default function AdCategoryPage() {
     const [page, setPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
     const [previewLang, setPreviewLang] = useState<LangKey>(dashboardLang as LangKey)
+
+    const [addDialogOpen, setAddDialogOpen] = useState(false)
+    const [addLangTab, setAddLangTab] = useState<"en" | "ta" | "si">("en");
+    const [enName, setEnName] = useState("Name")
+    const [enValue, setEnValue] = useState("")
+    const [taName, setTaName] = useState("பெயர்")
+    const [taValue, setTaValue] = useState("")
+    const [siName, setSiName] = useState("නම")
+    const [siValue, setSiValue] = useState("")
+    const [loading, setLoading] = useState(false)
+
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [editLangTab, setEditLangTab] = useState<"en" | "ta" | "si">("en");
+    const [editId, setEditId] = useState<string | null>(null);
+    const [editEnName, setEditEnName] = useState("Name");
+    const [editEnValue, setEditEnValue] = useState("");
+    const [editTaName, setEditTaName] = useState("பெயர்");
+    const [editTaValue, setEditTaValue] = useState("");
+    const [editSiName, setEditSiName] = useState("නම");
+    const [editSiValue, setEditSiValue] = useState("");
+    const [editLoading, setEditLoading] = useState(false);
+
     const { data, error, isLoading, mutate } = useSWR<{ adCategory: adCategory[]; pagination?: any }>(
         `${process.env.NEXT_PUBLIC_API_URL}/advertistment/ad-category/all?page=${page}&limit=${pageSize}`,
         fetcher
     )
 
     const handleAddadCategory = () => {
-        router.push("/adcategory/new")
+        setAddDialogOpen(true)
     }
 
-    const handleEditadCategory = (adCategoryId: string) => {
-        router.push(`/adcategory/edit/${adCategoryId}`)
+    const handleEditadCategory = (categoryId: string) => {
+        const cat = data?.adCategory.find(c => c._id === categoryId);
+        if (!cat) return;
+        setEditId(cat._id);
+        setEditEnName(cat.name.en[0]?.name || "");
+        setEditEnValue(cat.name.en[0]?.value || "");
+        setEditTaName(cat.name.ta[0]?.name || "");
+        setEditTaValue(cat.name.ta[0]?.value || "");
+        setEditSiName(cat.name.si[0]?.name || "");
+        setEditSiValue(cat.name.si[0]?.value || "");
+        setEditLangTab("en");
+        setEditDialogOpen(true);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setLoading(true)
+        try {
+            const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+            const body = {
+                name: {
+                    en: [{ name: enName, value: enValue }],
+                    ta: [{ name: taName, value: taValue }],
+                    si: [{ name: siName, value: siValue }],
+                },
+                isDeleted: false,
+                isActive: true,
+            }
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/advertistment/ad-category`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token && { Authorization: `Bearer ${token}` }),
+                },
+                body: JSON.stringify(body),
+            })
+            if (!res.ok) throw new Error("Failed to add")
+            toast({ title: "Success", description: "Category added." })
+            setEnValue(""); setTaValue(""); setSiValue("");
+            setAddDialogOpen(false)
+            mutate()
+        } catch {
+            toast({ title: "Error", description: "Failed to add category." })
+        }
+        setLoading(false)
     }
+
+    const handleEditSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editId) return;
+        setEditLoading(true);
+        try {
+            const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+            const body = {
+                name: {
+                    en: [{ name: editEnName, value: editEnValue }],
+                    ta: [{ name: editTaName, value: editTaValue }],
+                    si: [{ name: editSiName, value: editSiValue }],
+                },
+            };
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/advertistment/ad-category/${editId}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token && { Authorization: `Bearer ${token}` }),
+                },
+                body: JSON.stringify(body),
+            });
+            if (!res.ok) throw new Error("Failed to update");
+            toast({ title: "Success", description: "Category updated." });
+            setEditDialogOpen(false);
+            mutate();
+        } catch {
+            toast({ title: "Error", description: "Failed to update category." });
+        }
+        setEditLoading(false);
+    };
 
     const handleDeleteadCategory = async () => {
         if (!deleteadCategory) return
@@ -211,6 +310,94 @@ export default function AdCategoryPage() {
                     </div>
                 )}
             </ViewDialog>
+
+            {/* Add Category Dialog */}
+            <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Add Category</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <Tabs value={addLangTab} onValueChange={v => setAddLangTab(v as "en" | "ta" | "si")}>
+                            <TabsList>
+                                <TabsTrigger value="en">English</TabsTrigger>
+                                <TabsTrigger value="ta">Tamil</TabsTrigger>
+                                <TabsTrigger value="si">Sinhala</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="en">
+                                <div>
+                                    <Label htmlFor="enValue" className="mt-2">English Value</Label>
+                                    <Input id="enValue" value={enValue} onChange={e => setEnValue(e.target.value)} required />
+                                </div>
+                            </TabsContent>
+                            <TabsContent value="ta">
+                                <div>
+                                    <Label htmlFor="taValue" className="mt-2">Tamil Value</Label>
+                                    <Input id="taValue" value={taValue} onChange={e => setTaValue(e.target.value)} required />
+                                </div>
+                            </TabsContent>
+                            <TabsContent value="si">
+                                <div>
+                                    <Label htmlFor="siValue" className="mt-2">Sinhala Value</Label>
+                                    <Input id="siValue" value={siValue} onChange={e => setSiValue(e.target.value)} required />
+                                </div>
+                            </TabsContent>
+                        </Tabs>
+                        <DialogFooter>
+                            <Button type="submit" disabled={loading}>
+                                {loading ? "Adding..." : "Add"}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Category Dialog */}
+            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit Category</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleEditSubmit} className="space-y-4">
+                        <Tabs value={editLangTab} onValueChange={v => setEditLangTab(v as "en" | "ta" | "si")}>
+                            <TabsList>
+                                <TabsTrigger value="en">English</TabsTrigger>
+                                <TabsTrigger value="ta">Tamil</TabsTrigger>
+                                <TabsTrigger value="si">Sinhala</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="en">
+                                <div>
+                                    {/* <Label htmlFor="editEnName">English Name</Label>
+                                    <Input id="editEnName" value={editEnName} onChange={e => setEditEnName(e.target.value)} required /> */}
+                                    <Label htmlFor="editEnValue" className="mt-2">English Value</Label>
+                                    <Input id="editEnValue" value={editEnValue} onChange={e => setEditEnValue(e.target.value)} required />
+                                </div>
+                            </TabsContent>
+                            <TabsContent value="ta">
+                                <div>
+                                    {/* <Label htmlFor="editTaName">Tamil Name</Label>
+                                    <Input id="editTaName" value={editTaName} onChange={e => setEditTaName(e.target.value)} required /> */}
+                                    <Label htmlFor="editTaValue" className="mt-2">Tamil Value</Label>
+                                    <Input id="editTaValue" value={editTaValue} onChange={e => setEditTaValue(e.target.value)} required />
+                                </div>
+                            </TabsContent>
+                            <TabsContent value="si">
+                                <div>
+                                    {/* <Label htmlFor="editSiName">Sinhala Name</Label>
+                                    <Input id="editSiName" value={editSiName} onChange={e => setEditSiName(e.target.value)} required /> */}
+                                    <Label htmlFor="editSiValue" className="mt-2">Sinhala Value</Label>
+                                    <Input id="editSiValue" value={editSiValue} onChange={e => setEditSiValue(e.target.value)} required />
+                                </div>
+                            </TabsContent>
+                        </Tabs>
+                        <DialogFooter>
+                            <Button type="submit" disabled={editLoading}>
+                                {editLoading ? "Saving..." : "Save"}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
             {/* Delete Confirmation Dialog */}
             <ConfirmDialog

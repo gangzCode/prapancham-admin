@@ -270,7 +270,15 @@ export default function EditEventPage() {
                                                     </FormControl>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-auto p-0" align="start">
-                                                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                                                    {/* <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /> */}
+                                                    <Input
+                                                        id="date"
+                                                        name="date"
+                                                        type="date"
+                                                        value={field.value ? format(field.value, "yyyy-MM-dd") : ""}
+                                                        onChange={field.onChange}
+                                                        required
+                                                    />
                                                     <div className="p-3 border-t border-border">
                                                         <Input
                                                             type="time"
@@ -313,7 +321,15 @@ export default function EditEventPage() {
                                                     </FormControl>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-auto p-0" align="start">
-                                                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                                                    {/* <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /> */}
+                                                    <Input
+                                                        id="expiryDate"
+                                                        name="expiryDate"
+                                                        type="date"
+                                                        value={field.value ? format(field.value, "yyyy-MM-dd") : ""}
+                                                        onChange={field.onChange}
+                                                        required
+                                                    />
                                                     <div className="p-3 border-t border-border">
                                                         <Input
                                                             type="time"
@@ -415,14 +431,10 @@ export default function EditEventPage() {
                                         <FormLabel>Event Image</FormLabel>
                                         <FormControl>
                                             <ImageUpload
-                                                value={
-                                                    field.value instanceof File
-                                                        ? field.value
-                                                        : null
-                                                }
+                                                value={field.value}
                                                 onChange={file => field.onChange(file)}
-                                                previewHeight={200}
-                                                previewWidth={400}
+                                            // previewHeight={200}
+                                            // previewWidth={400}
                                             />
                                         </FormControl>
                                         <FormDescription>The main image for the event.</FormDescription>
@@ -441,14 +453,10 @@ export default function EditEventPage() {
                                             <FormLabel>Featured Event Image (Optional)</FormLabel>
                                             <FormControl>
                                                 <ImageUpload
-                                                    value={
-                                                        field.value instanceof File
-                                                            ? field.value
-                                                            : null
-                                                    }
+                                                    value={field.value}
                                                     onChange={file => field.onChange(file)}
-                                                    previewHeight={200}
-                                                    previewWidth={400}
+                                                // previewHeight={200}
+                                                // previewWidth={400}
                                                 />
                                             </FormControl>
                                             <FormDescription>
