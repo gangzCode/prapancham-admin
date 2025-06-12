@@ -17,6 +17,7 @@ import { useLanguage } from "@/contexts/language-context"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 
 type adCategory = {
     _id: string
@@ -81,6 +82,9 @@ export default function AdCategoryPage() {
     const [editSiName, setEditSiName] = useState("නම");
     const [editSiValue, setEditSiValue] = useState("");
     const [editLoading, setEditLoading] = useState(false);
+    const [editIsActive, setEditIsActive] = useState<boolean>(true);
+    const [isActive, setIsActive] = useState(true); // For Add
+
 
     const { data, error, isLoading, mutate } = useSWR<{ adCategory: adCategory[]; pagination?: any }>(
         `${process.env.NEXT_PUBLIC_API_URL}/advertistment/ad-category/all?page=${page}&limit=${pageSize}`,
@@ -102,6 +106,7 @@ export default function AdCategoryPage() {
         setEditSiName(cat.name.si[0]?.name || "");
         setEditSiValue(cat.name.si[0]?.value || "");
         setEditLangTab("en");
+        setEditIsActive(cat.isActive);
         setEditDialogOpen(true);
     };
 
@@ -150,6 +155,7 @@ export default function AdCategoryPage() {
                     ta: [{ name: editTaName, value: editTaValue }],
                     si: [{ name: editSiName, value: editSiValue }],
                 },
+                isActive: editIsActive,
             };
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/advertistment/ad-category/${editId}`, {
                 method: "PUT",
@@ -247,7 +253,7 @@ export default function AdCategoryPage() {
                     icon: <Plus className="mr-2 h-4 w-4" />,
                 }}
             />
-
+    
             {isLoading ? (
                 <div className="text-center">Loading...</div>
             ) : error ? (
@@ -266,7 +272,7 @@ export default function AdCategoryPage() {
                     onPageSizeChange={setPageSize}
                 />
             )}
-
+    
             {/* View adCategory Dialog */}
             <ViewDialog
                 open={!!viewadCategory}
@@ -310,7 +316,7 @@ export default function AdCategoryPage() {
                     </div>
                 )}
             </ViewDialog>
-
+    
             {/* Add Category Dialog */}
             <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
                 <DialogContent>
@@ -343,6 +349,13 @@ export default function AdCategoryPage() {
                                 </div>
                             </TabsContent>
                         </Tabs>
+    
+                        {/* Add Status Switch */}
+                        <div className="flex items-center space-x-2">
+                            <Switch id="addStatus" checked={isActive} onCheckedChange={setIsActive} />
+                            <Label htmlFor="addStatus">Active</Label>
+                        </div>
+    
                         <DialogFooter>
                             <Button type="submit" disabled={loading}>
                                 {loading ? "Adding..." : "Add"}
@@ -351,7 +364,7 @@ export default function AdCategoryPage() {
                     </form>
                 </DialogContent>
             </Dialog>
-
+    
             {/* Edit Category Dialog */}
             <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
                 <DialogContent>
@@ -367,29 +380,29 @@ export default function AdCategoryPage() {
                             </TabsList>
                             <TabsContent value="en">
                                 <div>
-                                    {/* <Label htmlFor="editEnName">English Name</Label>
-                                    <Input id="editEnName" value={editEnName} onChange={e => setEditEnName(e.target.value)} required /> */}
                                     <Label htmlFor="editEnValue" className="mt-2">English Value</Label>
                                     <Input id="editEnValue" value={editEnValue} onChange={e => setEditEnValue(e.target.value)} required />
                                 </div>
                             </TabsContent>
                             <TabsContent value="ta">
                                 <div>
-                                    {/* <Label htmlFor="editTaName">Tamil Name</Label>
-                                    <Input id="editTaName" value={editTaName} onChange={e => setEditTaName(e.target.value)} required /> */}
                                     <Label htmlFor="editTaValue" className="mt-2">Tamil Value</Label>
                                     <Input id="editTaValue" value={editTaValue} onChange={e => setEditTaValue(e.target.value)} required />
                                 </div>
                             </TabsContent>
                             <TabsContent value="si">
                                 <div>
-                                    {/* <Label htmlFor="editSiName">Sinhala Name</Label>
-                                    <Input id="editSiName" value={editSiName} onChange={e => setEditSiName(e.target.value)} required /> */}
                                     <Label htmlFor="editSiValue" className="mt-2">Sinhala Value</Label>
                                     <Input id="editSiValue" value={editSiValue} onChange={e => setEditSiValue(e.target.value)} required />
                                 </div>
                             </TabsContent>
                         </Tabs>
+    
+f                        <div className="flex items-center space-x-2">
+                            <Switch id="editStatus" checked={editIsActive} onCheckedChange={setEditIsActive} />
+                            <Label htmlFor="editStatus">Active</Label>
+                        </div>
+    
                         <DialogFooter>
                             <Button type="submit" disabled={editLoading}>
                                 {editLoading ? "Saving..." : "Save"}
@@ -398,7 +411,7 @@ export default function AdCategoryPage() {
                     </form>
                 </DialogContent>
             </Dialog>
-
+    
             {/* Delete Confirmation Dialog */}
             <ConfirmDialog
                 open={!!deleteadCategory}
@@ -409,5 +422,5 @@ export default function AdCategoryPage() {
                 loading={isDeleting}
             />
         </div>
-    )
+    );    
 }
