@@ -27,6 +27,7 @@ type Advertisement = {
   price: number
   status: "active" | "scheduled" | "expired" | "draft"
   imageUrl: string
+  adCategory: string // Added adCategory
 }
 
 const fetcher = async (url: string): Promise<{ advertisements: Advertisement[]; pagination?: any }> => {
@@ -76,6 +77,8 @@ const fetcher = async (url: string): Promise<{ advertisements: Advertisement[]; 
           size = ad.adType.imageSize || ""
         }
 
+        const adCategoryName = ad.adCategory?.name?.en?.[0]?.value || "" // Extract adCategory name
+
         return {
           id: ad._id || ad.id,
           title: ad.adPageName || "",
@@ -91,6 +94,7 @@ const fetcher = async (url: string): Promise<{ advertisements: Advertisement[]; 
               ? "expired"
               : "draft",
           imageUrl: ad.image || "",
+          adCategory: adCategoryName, // Assign extracted adCategory
         }
       })
     ),
@@ -165,10 +169,15 @@ export default function AdvertisementPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Title" type="text" />,
       cell: ({ row }) => <div className="font-medium">{row.original.title}</div>,
     },
+    // Original lines that were commented out
     // {
     //   accessorKey: "client",
     //   header: ({ column }) => <DataTableColumnHeader column={column} title="Client" type="text" />,
     // },
+    {
+      accessorKey: "adCategory", // New column for Ad Category
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Ad Category" type="text" />,
+    },
     {
       accessorKey: "placement",
       header: ({ column }) => (
@@ -295,6 +304,7 @@ export default function AdvertisementPage() {
               </div>
             </div>
 
+            {/* Original commented out section */}
             {/* <div className="grid grid-cols-2 gap-4">
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Client</h3>
@@ -320,30 +330,37 @@ export default function AdvertisementPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <h3 className="font-medium text-sm text-muted-foreground">Placement</h3>
-                <p>{viewAd.placement}</p>
+                <h3 className="font-medium text-sm text-muted-foreground">Ad Category</h3> {/* New field */}
+                <p>{viewAd.adCategory}</p>
               </div>
               <div>
-                <h3 className="font-medium text-sm text-muted-foreground">Size</h3>
-                <p>{viewAd.size}</p>
+                <h3 className="font-medium text-sm text-muted-foreground">Placement</h3>
+                <p>{viewAd.placement}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
+                <h3 className="font-medium text-sm text-muted-foreground">Size</h3>
+                <p>{viewAd.size}</p>
+              </div>
+              <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Start Date</h3>
                 <p>{viewAd.startDate}</p>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground">End Date</h3>
                 <p>{viewAd.endDate}</p>
               </div>
+              {/* Original commented out section */}
+              {/* <div>
+                <h3 className="font-medium text-sm text-muted-foreground">Price</h3>
+                <p className="text-lg font-semibold">${viewAd.price}</p>
+              </div> */}
             </div>
-
-            {/* <div>
-              <h3 className="font-medium text-sm text-muted-foreground">Price</h3>
-              <p className="text-lg font-semibold">${viewAd.price}</p>
-            </div> */}
           </div>
         )}
       </ViewDialog>

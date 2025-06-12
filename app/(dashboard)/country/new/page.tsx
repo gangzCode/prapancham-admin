@@ -32,6 +32,7 @@ export default function AddCountryPage() {
     const [tab, setTab] = useState<LangKey>("en")
     const [previewImage, setPreviewImage] = useState<string | null>(null)
     const [imageFile, setImageFile] = useState<File | null>(null)
+    const [currencyCode, setCurrencyCode] = useState<string>("")
 
     const handleNameChange = (lang: LangKey, value: string) => {
         setNames((prev) => ({
@@ -39,7 +40,6 @@ export default function AddCountryPage() {
             [lang]: [{ ...prev[lang][0], value }],
         }))
     }
-
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -59,6 +59,7 @@ export default function AddCountryPage() {
         try {
             const formData = new FormData()
             formData.append("name", JSON.stringify(names))
+            formData.append("currencyCode", currencyCode)
             if (imageFile) formData.append("image", imageFile)
 
             const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
@@ -109,15 +110,26 @@ export default function AddCountryPage() {
                                 </TabsContent>
                             ))}
                         </Tabs>
+
+                        <div>
+                            <Label className="block mb-2">Currency Code</Label>
+                            <Input
+                                type="text"
+                                placeholder="e.g. USD"
+                                value={currencyCode}
+                                onChange={(e) => setCurrencyCode(e.target.value)}
+                                required
+                            />
+                        </div>
+
                         <div>
                             <Label className="block mb-2">Image</Label>
-
                             <div className="flex flex-col items-center gap-4">
                                 {previewImage ? (
                                     <div className="relative h-40 w-full max-w-md overflow-hidden rounded-md border">
                                         <Image
                                             src={previewImage || "/placeholder.svg"}
-                                            alt="Advertisement preview"
+                                            alt="Country preview"
                                             fill
                                             className="object-contain"
                                         />
@@ -151,6 +163,7 @@ export default function AddCountryPage() {
                                 />
                             </div>
                         </div>
+
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>
                                 <Link href="/country">Cancel</Link>
@@ -160,10 +173,8 @@ export default function AddCountryPage() {
                             </Button>
                         </div>
                     </form>
-
                 </CardContent>
             </Card>
         </div>
-
     )
 }

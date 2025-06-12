@@ -35,12 +35,12 @@ export default function EditCountryPage({ params }: { params: Promise<{ id: stri
     const router = useRouter()
     const { toast } = useToast()
     const [names, setNames] = useState(defaultNames)
+    const [currencyCode, setCurrencyCode] = useState("")
     const [image, setImage] = useState<File | null>(null)
     const [preview, setPreview] = useState<string>("")
     const [loading, setLoading] = useState(false)
     const [tab, setTab] = useState<LangKey>("en")
     const [isActive, setIsActive] = useState(true)
-
 
     const { id } = use(params)
 
@@ -54,9 +54,9 @@ export default function EditCountryPage({ params }: { params: Promise<{ id: stri
                     ta: [{ name: "நாடு பெயர்", value: data.name?.ta?.[0]?.value || "" }],
                     si: [{ name: "රටේ නම", value: data.name?.si?.[0]?.value || "" }],
                 })
-                setPreview(data.image || ""),
+                setCurrencyCode(data.currencyCode || "")
+                setPreview(data.image || "")
                 setIsActive(data.isActive)
-
             } catch {
                 toast({ title: "Error", description: "Failed to load country." })
             }
@@ -87,6 +87,7 @@ export default function EditCountryPage({ params }: { params: Promise<{ id: stri
             const formData = new FormData()
             formData.append("countryId", id)
             formData.append("name", JSON.stringify(names))
+            formData.append("currencyCode", currencyCode)
             formData.append("isActive", JSON.stringify(isActive))
 
             if (image) formData.append("image", image)
@@ -139,6 +140,18 @@ export default function EditCountryPage({ params }: { params: Promise<{ id: stri
                                 </TabsContent>
                             ))}
                         </Tabs>
+
+                        <div>
+                            <Label className="block mb-2">Currency Code</Label>
+                            <Input
+                                type="text"
+                                value={currencyCode}
+                                onChange={(e) => setCurrencyCode(e.target.value)}
+                                placeholder="USD, LKR, etc."
+                                required
+                            />
+                        </div>
+
                         <div className="flex items-center gap-4">
                             <Label htmlFor="status" className="mb-0">Active Status</Label>
                             <Switch
