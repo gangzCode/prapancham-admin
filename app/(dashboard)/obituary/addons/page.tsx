@@ -256,10 +256,21 @@ export default function ObituaryAddonsPage() {
   }
 
   const confirmDelete = async () => {
+    if (!selectedAddon?._id) return;
+
     setIsSubmitting(true)
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+      const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/obituaryRemembarance-packages/addons/${selectedAddon._id}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+      );
 
       toast({
         title: "Addon deleted",
