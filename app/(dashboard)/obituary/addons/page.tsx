@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import {useEffect, useState} from "react"
 import { Plus, Eye, Pencil, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -54,6 +54,8 @@ export default function ObituaryAddonsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
+  const [countries, setCountries] = useState<any[]>([]);
+
 
 
   type AddonName = {
@@ -79,6 +81,47 @@ export default function ObituaryAddonsPage() {
     isActive: boolean
     __v: number
   }
+
+  useEffect(() => {
+    const fetchCountries = async () => {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/country/all`,{
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      setCountries(data.countries);
+    };
+
+    fetchCountries();
+  }, []);
+
+  const getCountryName = (id: string, lang: "en" | "ta" | "si" = "en") => {
+    if (!Array.isArray(countries)) return id;
+    const country = countries.find((c) => c._id === id);
+    return country?.name?.[lang]?.[0]?.value || id;
+  };
+
+  const getCurrencyCode = (id: string) => {
+    if (!Array.isArray(countries)) return "";
+    const country = countries.find((c) => c._id === id);
+    return country?.currencyCode || "";
+  };
+
+  const getLocalizedValue = (
+      field: {
+        en: { name: string; value: string }[]
+        ta: { name: string; value: string }[]
+        si: { name: string; value: string }[]
+      } | undefined,
+      lang: string
+  ): string => {
+    const langField = field?.[lang as keyof typeof field] ?? field?.en;
+    return Array.isArray(langField) && langField.length > 0 ? langField[0].value : "";
+  };
+
 
   const fetcher = async (url: string) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
@@ -116,24 +159,6 @@ export default function ObituaryAddonsPage() {
     `${process.env.NEXT_PUBLIC_API_URL}/obituaryRemembarance-packages/addons/all?page=${page}&limit=${pageSize}`,
     fetcher
   )
-
-  // const addons: ObituaryAddon[] = [
-  //   {
-  //     _id: "682273847da452cfd2e27c1a",
-  //     name: {
-  //       en: [{ name: "Candle Set", value: "White Candles", _id: "682273847da452cfd2e27c1b" }],
-  //       ta: [{ name: "மின்சுடர் தொகுப்பு", value: "வெள்ளை மின்சுடர்", _id: "682273847da452cfd2e27c1c" }],
-  //       si: [{ name: "මිනිසුන්ට මැවිලි", value: "සුදු මැවිලි", _id: "682273847da452cfd2e27c1d" }],
-  //     },
-  //     isDeleted: false,
-  //     priceList: [
-  //       { country: "Sri Lanka", currencyCode: "LKR", price: 1500, _id: "682273847da452cfd2e27c1e" },
-  //       { country: "USA", currencyCode: "USD", price: 5, _id: "682273847da452cfd2e27c1f" },
-  //     ],
-  //     isActive: true,
-  //     __v: 0,
-  //   },
-  // ]
 
 
   const handleView = (addon: any) => {
@@ -188,10 +213,30 @@ export default function ObituaryAddonsPage() {
   }
 
   const handleEditSubmit = async () => {
+    if (!selectedAddon?._id) return;
     setIsSubmitting(true)
+
+
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+      const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/obituaryRemembarance-packages/addons/${selectedAddon._id}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+            body: JSON.stringify({
+              name: selectedAddon.name,
+              priceList: selectedAddon.priceList.map((item: any) => ({
+                country: item.country,
+                price: parseFloat(item.price),
+              })),
+            }),
+          }
+      );
 
       toast({
         title: "Addon updated",
@@ -238,17 +283,21 @@ export default function ObituaryAddonsPage() {
       accessorKey: "name",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Name" type="text" />,
       cell: ({ row }) => (
-        <span>{row.original.name.en[0]?.value || "-"}</span>
+        <span>{row.original.name.en[0]?.name || "-"}</span>
       ),
     },
     {
       accessorKey: "priceList",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Price" type="number" />,
-      cell: ({ row }) => (
-        <span>
-          {row.original.priceList.map((p) => `${p.country}: ${p.currencyCode} ${p.price}`).join(", ")}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const prices = row.original.priceList.map((p) => {
+          const countryName = getCountryName(p.country);
+          const currency = getCurrencyCode(p.country);
+          return `${countryName}: ${currency} ${p.price}`;
+        });
+
+        return <span>{prices.join(", ")}</span>;
+        },
     },
     {
       id: "actions",
@@ -328,11 +377,15 @@ export default function ObituaryAddonsPage() {
               <div>
                 <Label>Price List</Label>
                 <ul className="list-disc pl-5">
-                  {selectedAddon.priceList.map((p) => (
-                    <li key={p._id}>
-                      {p.country} ({p.currencyCode}): {p.price}
-                    </li>
-                  ))}
+                  {selectedAddon.priceList.map((p) => {
+                    const name = getCountryName(p.country, "en");
+                    const currency = getCurrencyCode(p.country);
+                    return (
+                        <li key={p._id}>
+                          {name} ({currency}): {p.price}
+                        </li>
+                    );
+                  })}
                 </ul>
               </div>
               <div>
@@ -584,7 +637,11 @@ export default function ObituaryAddonsPage() {
                   <Input
                     className="col-span-4"
                     placeholder="Country"
-                    value={p.country}
+                    value={
+                      getLocalizedValue(
+                          countries.find((c) => c._id === p.country)?.name || { en: [], ta: [], si: [] },
+                          "en"
+                      )}
                     onChange={e => {
                       if (!selectedAddon) return
                       const updated = [...selectedAddon.priceList]
@@ -595,7 +652,7 @@ export default function ObituaryAddonsPage() {
                   <Input
                     className="col-span-3"
                     placeholder="Currency"
-                    value={p.currencyCode}
+                    value={countries.find((c) => c._id === p.country)?.currencyCode || ""}
                     onChange={e => {
                       if (!selectedAddon) return
                       const updated = [...selectedAddon.priceList]
@@ -672,14 +729,6 @@ export default function ObituaryAddonsPage() {
             </Button>
             <Button
               onClick={handleEditSubmit}
-              disabled={
-                isSubmitting ||
-                !selectedAddon?.name.en[0]?.name ||
-                !selectedAddon?.name.en[0]?.value ||
-                selectedAddon?.priceList.some(
-                  (p: any) => !p.country || !p.currencyCode || !p.price
-                )
-              }
             >
               {isSubmitting ? "Updating..." : "Update"}
             </Button>

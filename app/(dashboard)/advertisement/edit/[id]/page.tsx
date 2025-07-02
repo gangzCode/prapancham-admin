@@ -230,18 +230,17 @@ export default function EditAdvertisementPage({ params }: { params: Promise<{ id
         try {
             const adIdToSubmit = advertisementId;
 
-            const form = new FormData() 
-            form.append("link", formData.link)
-            form.append("adType", formData.adType)
-            form.append("adCategory", formData.adCategory)
+            const form = new FormData()
             form.append("adPageName", formData.adPageName)
-            form.append("expiryDate", formData.expiryDate)
-            form.append("isActive", String(formData.isActive))
-            form.append("advertistmentId", adIdToSubmit)
-
+            form.append("adType", formData.adType)
+            form.append("link", formData.link)
             if (imageFile) {
                 form.append("image", imageFile)
             }
+            form.append("expiryDate", formData.expiryDate)
+            form.append("adId", adIdToSubmit)
+            form.append("adCategory", formData.adCategory)
+            //form.append("isActive", String(formData.isActive))
 
             const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
             const res = await fetch(`${apiUrl}/advertistment/update`, {

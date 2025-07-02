@@ -17,9 +17,7 @@ import { Switch } from "@/components/ui/switch"
 import { ImageUpload } from "@/components/image-upload"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Trash2 } from "lucide-react"
-import useSWR from "swr"
-import {undefined} from "zod";
+import { Plus, Trash2, Loader2 } from "lucide-react"
 
 
 // Helper function to get localized value
@@ -77,12 +75,8 @@ const newsFormSchema = z.object({
             }),
         ),
     }),
-    thumbnailImage: z.any().optional().refine((file) => file instanceof File, {
-        message: "Thumbnail image is required.",
-    }),
-    mainImage: z.any().optional().refine((file) => file instanceof File, {
-        message: "main Image is required.",
-    }),
+    thumbnailImage: z.string().min(1, { message: "Thumbnail image is required." }),
+    mainImage: z.string().min(1, { message: "Main image is required." }),
     otherImages: z.array(z.string()),
     paragraphs: z.array(
         z.object({
@@ -129,87 +123,128 @@ const newsFormSchema = z.object({
     newsCategory: z.string().min(1, { message: "News category is required." }),
     isBreakingNews: z.boolean().default(false),
     isImportantNews: z.boolean().default(false),
+    isDeleted: z.boolean().default(false),
 })
 
 type NewsFormValues = z.infer<typeof newsFormSchema>
 
-// Default values for the form
-const defaultValues: Partial<NewsFormValues> = {
-    title: {
-        en: [{ name: "title", value: "" }],
-        ta: [{ name: "title", value: "" }],
-        si: [{ name: "title", value: "" }],
-    },
-    description: {
-        en: [{ name: "description", value: "" }],
-        ta: [{ name: "description", value: "" }],
-        si: [{ name: "description", value: "" }],
-    },
-    //thumbnailImage: undefined,
-    //mainImage: undefined,
-    otherImages: [],
-    paragraphs: [
-        {
-            en: [{ name: "paragraph", value: "" }],
-            ta: [{ name: "paragraph", value: "" }],
-            si: [{ name: "paragraph", value: "" }],
-        },
-    ],
-    editorName: {
-        en: [{ name: "editor", value: "" }],
-        ta: [{ name: "editor", value: "" }],
-        si: [{ name: "editor", value: "" }],
-    },
-    newsCategory: "",
-    isBreakingNews: false,
-    isImportantNews: false,
-}
-
-export default function NewNewsPage() {
+export default function EditNewsPage({ id }: { id: string }) {
     const router = useRouter()
     const { toast } = useToast()
-    const { language = "en", t } = useLanguage()
+    const { language, t } = useLanguage()
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [isLoading, setIsLoading] = useState(true)
     const [otherImages, setOtherImages] = useState<string[]>([])
-    const [categories, setCategories] = useState<any[]>([])
-    const [categoryPage, setCategoryPage] = useState(1)
-    const [categoryTotalPages, setCategoryTotalPages] = useState(1)
-    const categoryLimit = 10
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
-    const { data: categoryData, isLoading: categoryLoading } = useSWR(
-        `${apiUrl}/news/news-category/active?page=${categoryPage}&limit=${categoryLimit}`,
-        async (url) => {
-            const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-            const res = await fetch(url, {
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(token && { Authorization: `Bearer ${token}` }),
-                },
-            })
-            if (!res.ok) throw new Error("Failed to fetch categories")
-            return res.json()
-        },
-        { keepPreviousData: true },
-    )
-
-    useEffect(() => {
-        if (categoryData?.newsCategory) {
-            setCategories((prev) => {
-                const ids = new Set(prev.map((c) => c._id))
-                return [
-                    ...prev,
-                    ...categoryData.newsCategory.filter((c: any) => !ids.has(c._id)),
-                ]
-            })
-            setCategoryTotalPages(categoryData.pagination?.totalPages || 1)
+    const [newsCategories, setNewsCategories] = useState<{
+        id: string
+        name: {
+            en: { name: string; value: string }[]
+            ta: { name: string; value: string }[]
+            si: { name: string; value: string }[]
         }
-    }, [categoryData])
+    }[]>([]);
 
     // Initialize form
     const form = useForm<NewsFormValues>({
         resolver: zodResolver(newsFormSchema),
-        defaultValues,
+        defaultValues: {
+            title: {
+                en: [{ name: "title", value: "" }],
+                ta: [{ name: "title", value: "" }],
+                si: [{ name: "title", value: "" }],
+            },
+            description: {
+                en: [{ name: "description", value: "" }],
+                ta: [{ name: "description", value: "" }],
+                si: [{ name: "description", value: "" }],
+            },
+            thumbnailImage: "",
+            mainImage: "",
+            otherImages: [],
+            paragraphs: [
+                {
+                    en: [{ name: "paragraph", value: "" }],
+                    ta: [{ name: "paragraph", value: "" }],
+                    si: [{ name: "paragraph", value: "" }],
+                },
+            ],
+            editorName: {
+                en: [{ name: "editor", value: "" }],
+                ta: [{ name: "editor", value: "" }],
+                si: [{ name: "editor", value: "" }],
+            },
+            newsCategory: "",
+            isBreakingNews: false,
+            isImportantNews: false,
+            isDeleted: false,
+        },
     })
+
+    useEffect(() => {
+        async function fetchCategories() {
+            try {
+                const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+
+                const res = await fetch(`https://prapancham-backend.vercel.app/api/v1/news/news-category/all`, {
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                    },
+                })
+
+                const json = await res.json()
+
+                if (Array.isArray(json.newsCategory)) {
+                    const formatted = json.newsCategory.map((item: any) => ({
+                        id: item._id,
+                        name: item.name,
+                    }))
+                    setNewsCategories(formatted)
+                }
+            } catch (err) {
+                console.error("Failed to fetch categories", err)
+            }
+        }
+
+        fetchCategories()
+    }, []);
+
+    // Fetch news data
+    useEffect(() => {
+        async function fetchNews() {
+            try {
+
+                const response = await fetch(`https://prapancham-backend.vercel.app/api/v1/news/${id}`);
+                const newsData = await response.json();
+
+                // Set form values
+                form.reset({
+                    title: newsData.news.title,
+                    description: newsData.news.description,
+                    thumbnailImage: newsData.news.thumbnailImage,
+                    mainImage: newsData.news.mainImage,
+                    otherImages: newsData.news.otherImages,
+                    paragraphs: newsData.news.paragraphs,
+                    editorName: newsData.news.editorName,
+                    newsCategory: newsData.news.newsCategory._id,
+                    isBreakingNews: newsData.news.isBreakingNews,
+                    isImportantNews: newsData.news.isImportantNews,
+                    isDeleted: newsData.news.isDeleted,
+                })
+
+                setOtherImages(newsData.news.otherImages)
+            } catch (error) {
+                toast({
+                    title: "Error",
+                    description: "Failed to load news data. Please try again.",
+                    variant: "destructive",
+                })
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
+        fetchNews()
+    }, [id, form, toast])
 
     // Form submission handler
     async function onSubmit(data: NewsFormValues) {
@@ -231,9 +266,10 @@ export default function NewNewsPage() {
             data.otherImages.forEach((file: any) => {
                 formData.append("otherImages", file)
             })
+            formData.append("newsId", id)
 
 
-            const response = await fetch(`https://prapancham-backend.vercel.app/api/v1/news`, {
+            const response = await fetch(`https://prapancham-backend.vercel.app/api/v1/news/update`, {
                 method: "POST",
                 headers: {
                     ...(token && { Authorization: `Bearer ${token}` }),
@@ -242,8 +278,8 @@ export default function NewNewsPage() {
             });
 
             toast({
-                title: "News article created",
-                description: `"${data.title.en[0].value}" has been created successfully.`,
+                title: "News article updated",
+                description: `"${data.title.en[0].value}" has been updated successfully.`,
             })
 
             // Redirect back to news list
@@ -251,7 +287,7 @@ export default function NewNewsPage() {
         } catch (error) {
             toast({
                 title: "Error",
-                description: "There was an error creating the news article. Please try again.",
+                description: "There was an error updating the news article. Please try again.",
                 variant: "destructive",
             })
         } finally {
@@ -283,6 +319,7 @@ export default function NewNewsPage() {
 
     // Add another image
     const addOtherImage = (url: string) => {
+        if (!url) return
         const newOtherImages = [...otherImages, url]
         setOtherImages(newOtherImages)
         form.setValue("otherImages", newOtherImages)
@@ -295,24 +332,26 @@ export default function NewNewsPage() {
         form.setValue("otherImages", newOtherImages)
     }
 
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        )
+    }
+
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Add New News Article"
-                description="Create a new news article with multilingual support"
+                title="Edit News Article"
+                description="Modify an existing news article with multilingual support"
                 href="/news"
             />
 
             <Card>
                 <CardContent className="pt-6">
                     <Form {...form}>
-                        <form
-                            onSubmit={form.handleSubmit((data) => {
-                                console.log("Form Data:", data)
-                                onSubmit(data)
-                            })}
-                            className="space-y-8"
-                        >
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                             <Tabs defaultValue={language} className="w-full">
                                 <TabsList className="mb-4">
                                     <TabsTrigger value="en">English</TabsTrigger>
@@ -359,7 +398,7 @@ export default function NewNewsPage() {
                                             </Button>
                                         </div>
 
-                                        {form.getValues().paragraphs.map((_, index) => (
+                                        {form.getValues().paragraphs?.map((_, index) => (
                                             <div key={index} className="flex items-start gap-2">
                                                 <FormField
                                                     control={form.control}
@@ -433,7 +472,7 @@ export default function NewNewsPage() {
 
                                     <div className="space-y-4">
                                         <FormLabel>Paragraphs (Tamil)</FormLabel>
-                                        {form.getValues().paragraphs.map((_, index) => (
+                                        {form.getValues().paragraphs?.map((_, index) => (
                                             <FormField
                                                 key={index}
                                                 control={form.control}
@@ -501,7 +540,7 @@ export default function NewNewsPage() {
 
                                     <div className="space-y-4">
                                         <FormLabel>Paragraphs (Sinhala)</FormLabel>
-                                        {form.getValues().paragraphs.map((_, index) => (
+                                        {form.getValues().paragraphs?.map((_, index) => (
                                             <FormField
                                                 key={index}
                                                 control={form.control}
@@ -545,36 +584,18 @@ export default function NewNewsPage() {
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>News Category</FormLabel>
-                                            <Select
-                                                value={field.value}
-                                                onValueChange={field.onChange}
-                                                defaultValue={field.value}
-                                            >
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger>
-                                                        <SelectValue placeholder="Select a category" />
+                                                        <SelectValue placeholder="Select news category" />
                                                     </SelectTrigger>
                                                 </FormControl>
-                                                <SelectContent
-                                                    onScroll={(e) => {
-                                                        const el = e.currentTarget
-                                                        if (
-                                                            el.scrollTop + el.clientHeight >= el.scrollHeight - 10 &&
-                                                            categoryPage < categoryTotalPages &&
-                                                            !categoryLoading
-                                                        ) {
-                                                            setCategoryPage((p) => p + 1)
-                                                        }
-                                                    }}
-                                                >
-                                                    {categories.map((cat) => (
-                                                        <SelectItem key={cat._id} value={cat._id}>
-                                                            {cat.name?.en?.[0]?.name || ""}
+                                                <SelectContent>
+                                                    {newsCategories.map((category) => (
+                                                        <SelectItem key={category.id} value={category.id}>
+                                                            {getLocalizedValue(category.name, language)}
                                                         </SelectItem>
                                                     ))}
-                                                    {categoryLoading && (
-                                                        <div className="p-2 text-center text-xs text-muted-foreground">Loading...</div>
-                                                    )}
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
@@ -582,39 +603,57 @@ export default function NewNewsPage() {
                                     )}
                                 />
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField
-                                        control={form.control}
-                                        name="isBreakingNews"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                                                <div className="space-y-0.5">
-                                                    <FormLabel className="text-base">Breaking News</FormLabel>
-                                                    <FormDescription>Mark as breaking news</FormDescription>
-                                                </div>
-                                                <FormControl>
-                                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                                </FormControl>
-                                            </FormItem>
-                                        )}
-                                    />
+                                <FormField
+                                    control={form.control}
+                                    name="isDeleted"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 border-destructive/20 bg-destructive/5">
+                                            <div className="space-y-0.5">
+                                                <FormLabel className="text-base">Mark as Deleted</FormLabel>
+                                                <FormDescription>
+                                                    This will hide the news article from the website but keep it in the database.
+                                                </FormDescription>
+                                            </div>
+                                            <FormControl>
+                                                <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
 
-                                    <FormField
-                                        control={form.control}
-                                        name="isImportantNews"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                                                <div className="space-y-0.5">
-                                                    <FormLabel className="text-base">Important News</FormLabel>
-                                                    <FormDescription>Mark as important news</FormDescription>
-                                                </div>
-                                                <FormControl>
-                                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                                </FormControl>
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <FormField
+                                    control={form.control}
+                                    name="isBreakingNews"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                            <div className="space-y-0.5">
+                                                <FormLabel className="text-base">Breaking News</FormLabel>
+                                                <FormDescription>Mark as breaking news</FormDescription>
+                                            </div>
+                                            <FormControl>
+                                                <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="isImportantNews"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                            <div className="space-y-0.5">
+                                                <FormLabel className="text-base">Important News</FormLabel>
+                                                <FormDescription>Mark as important news</FormDescription>
+                                            </div>
+                                            <FormControl>
+                                                <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -627,7 +666,7 @@ export default function NewNewsPage() {
                                             <FormControl>
                                                 <ImageUpload
                                                     value={field.value}
-                                                    onChange={(file) => field.onChange(file)}
+                                                    onChange={(url) => field.onChange(url)}
                                                     previewHeight={150}
                                                     previewWidth={200}
                                                 />
@@ -674,7 +713,7 @@ export default function NewNewsPage() {
                                     </div>
                                 </div>
 
-                                {otherImages.length > 0 && (
+                                {Array.isArray(otherImages) && otherImages.length > 0 && (
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
                                         {otherImages.map((image, index) => (
                                             <div key={index} className="relative">
@@ -703,7 +742,7 @@ export default function NewNewsPage() {
                                     Cancel
                                 </Button>
                                 <Button type="submit" disabled={isSubmitting}>
-                                    {isSubmitting ? "Creating..." : "Create News Article"}
+                                    {isSubmitting ? "Saving..." : "Save Changes"}
                                 </Button>
                             </div>
                         </form>
