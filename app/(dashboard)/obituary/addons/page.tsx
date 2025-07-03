@@ -32,6 +32,7 @@ import { ColumnDef } from "@tanstack/react-table"
 import { DataTableColumnHeader } from "@/components/data-table-column-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useSWR from "swr"
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 
 export default function ObituaryAddonsPage() {
   const { toast } = useToast()
@@ -183,8 +184,29 @@ export default function ObituaryAddonsPage() {
   const handleAddSubmit = async () => {
     setIsSubmitting(true)
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+      const validPriceList = newAddon.priceList.filter(
+          (p) => p.country && p.price !== "" && !isNaN(parseFloat(p.price))
+      );
+
+      const payload = {
+        name: newAddon.name,
+        priceList: validPriceList.map((p) => ({
+          country: p.country,
+          price: parseFloat(p.price),
+        })),
+      };
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/obituaryRemembarance-packages/addons`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify(payload),
+
+      });
 
       toast({
         title: "Addon created",
@@ -475,16 +497,27 @@ export default function ObituaryAddonsPage() {
               <Label>Price List</Label>
               {newAddon.priceList.map((p, idx) => (
                 <div key={idx} className="grid grid-cols-12 gap-2 mb-2">
-                  <Input
-                    className="col-span-4"
-                    placeholder="Country"
-                    value={p.country}
-                    onChange={e => {
-                      const updated = [...newAddon.priceList]
-                      updated[idx].country = e.target.value
-                      setNewAddon({ ...newAddon, priceList: updated })
-                    }}
-                  />
+
+                  <Select
+                      value={p.country}
+                      onValueChange={(value) => {
+                        const updated = [...newAddon.priceList]
+                        updated[idx].country = value
+                        setNewAddon({ ...newAddon, priceList: updated })
+                      }}
+                  >
+                    <SelectTrigger className="w-full col-span-4">
+                      <SelectValue placeholder="Select a country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map((country) => (
+                          <SelectItem key={country._id} value={country._id}>
+                            {getLocalizedValue(country.name, "en")}
+                          </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
                   <Input
                     className="col-span-3"
                     placeholder="Currency"
@@ -503,7 +536,7 @@ export default function ObituaryAddonsPage() {
                     value={p.price}
                     onChange={e => {
                       const updated = [...newAddon.priceList]
-                      updated[idx].price = e.target.value
+                      updated[idx].price = e.target.value || "0"
                       setNewAddon({ ...newAddon, priceList: updated })
                     }}
                   />
@@ -561,14 +594,6 @@ export default function ObituaryAddonsPage() {
             </Button>
             <Button
               onClick={handleAddSubmit}
-              disabled={
-                isSubmitting ||
-                !newAddon.name.en[0]?.name ||
-                !newAddon.name.en[0]?.value ||
-                newAddon.priceList.some(
-                  p => !p.country || !p.currencyCode || !p.price
-                )
-              }
             >
               {isSubmitting ? "Creating..." : "Create"}
             </Button>
