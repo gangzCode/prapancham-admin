@@ -168,11 +168,7 @@ export default function ObituaryAddonsPage() {
   }
 
   const handleEdit = (addon: any) => {
-    setEditAddon({
-      id: addon.id,
-      name: addon.name,
-      price: addon.price,
-    })
+    setSelectedAddon(addon)
     setEditDialogOpen(true)
   }
 
@@ -223,6 +219,7 @@ export default function ObituaryAddonsPage() {
         priceList: [{ country: "", currencyCode: "", price: "" }],
         isActive: true,
       })
+      mutate() // Refresh the data in the table
     } catch (error) {
       toast({
         title: "Error",
@@ -256,6 +253,7 @@ export default function ObituaryAddonsPage() {
                 country: item.country,
                 price: parseFloat(item.price),
               })),
+              isActive: selectedAddon.isActive,
             }),
           }
       );
@@ -266,6 +264,7 @@ export default function ObituaryAddonsPage() {
       })
 
       setEditDialogOpen(false)
+      mutate() // Refresh the data in the table
     } catch (error) {
       toast({
         title: "Error",
@@ -300,6 +299,7 @@ export default function ObituaryAddonsPage() {
       })
 
       setDeleteDialogOpen(false)
+      mutate() // Refresh the data in the table
     } catch (error) {
       toast({
         title: "Error",
@@ -410,7 +410,7 @@ export default function ObituaryAddonsPage() {
               <div>
                 <Label>Price List</Label>
                 <ul className="list-disc pl-5">
-                  {selectedAddon.priceList.map((p) => {
+                  {selectedAddon.priceList.map((p: any) => {
                     const name = getCountryName(p.country, "en");
                     const currency = getCurrencyCode(p.country);
                     return (
@@ -503,6 +503,7 @@ export default function ObituaryAddonsPage() {
                       onValueChange={(value) => {
                         const updated = [...newAddon.priceList]
                         updated[idx].country = value
+                        updated[idx].currencyCode = getCurrencyCode(value)
                         setNewAddon({ ...newAddon, priceList: updated })
                       }}
                   >
@@ -510,11 +511,17 @@ export default function ObituaryAddonsPage() {
                       <SelectValue placeholder="Select a country" />
                     </SelectTrigger>
                     <SelectContent>
-                      {countries.map((country) => (
+                      {countries
+                        .filter((country) => 
+                          !newAddon.priceList.some((priceItem, priceIdx) => 
+                            priceIdx !== idx && priceItem.country === country._id
+                          )
+                        )
+                        .map((country) => (
                           <SelectItem key={country._id} value={country._id}>
                             {getLocalizedValue(country.name, "en")}
                           </SelectItem>
-                      ))}
+                        ))}
                     </SelectContent>
                   </Select>
 
@@ -522,11 +529,8 @@ export default function ObituaryAddonsPage() {
                     className="col-span-3"
                     placeholder="Currency"
                     value={p.currencyCode}
-                    onChange={e => {
-                      const updated = [...newAddon.priceList]
-                      updated[idx].currencyCode = e.target.value
-                      setNewAddon({ ...newAddon, priceList: updated })
-                    }}
+                    readOnly
+                    disabled
                   />
                   <Input
                     className="col-span-3"
@@ -563,6 +567,13 @@ export default function ObituaryAddonsPage() {
                     ...newAddon,
                     priceList: [...newAddon.priceList, { country: "", currencyCode: "", price: "" }],
                   })
+                }
+                disabled={
+                  // Disable if first item doesn't have country and price
+                  !newAddon.priceList[0]?.country || 
+                  !newAddon.priceList[0]?.price ||
+                  // Disable if all countries are already added
+                  newAddon.priceList.length >= countries.length
                 }
               >
                 <Plus className="h-4 w-4 mr-1" /> Add Price
@@ -670,31 +681,39 @@ export default function ObituaryAddonsPage() {
               <Label>Price List</Label>
               {selectedAddon?.priceList.map((p: any, idx: number) => (
                 <div key={p._id || idx} className="grid grid-cols-12 gap-2 mb-2">
-                  <Input
-                    className="col-span-4"
-                    placeholder="Country"
-                    value={
-                      getLocalizedValue(
-                          countries.find((c) => c._id === p.country)?.name || { en: [], ta: [], si: [] },
-                          "en"
-                      )}
-                    onChange={e => {
+                  <Select
+                    value={p.country}
+                    onValueChange={(value) => {
                       if (!selectedAddon) return
                       const updated = [...selectedAddon.priceList]
-                      updated[idx].country = e.target.value
+                      updated[idx].country = value
+                      updated[idx].currencyCode = getCurrencyCode(value)
                       setSelectedAddon({ ...selectedAddon, priceList: updated })
                     }}
-                  />
+                  >
+                    <SelectTrigger className="w-full col-span-4">
+                      <SelectValue placeholder="Select a country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries
+                        .filter((country) => 
+                          !selectedAddon.priceList.some((priceItem: PriceItem, priceIdx: number) => 
+                            priceIdx !== idx && priceItem.country === country._id
+                          )
+                        )
+                        .map((country) => (
+                          <SelectItem key={country._id} value={country._id}>
+                            {getLocalizedValue(country.name, "en")}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                   <Input
                     className="col-span-3"
                     placeholder="Currency"
                     value={countries.find((c) => c._id === p.country)?.currencyCode || ""}
-                    onChange={e => {
-                      if (!selectedAddon) return
-                      const updated = [...selectedAddon.priceList]
-                      updated[idx].currencyCode = e.target.value
-                      setSelectedAddon({ ...selectedAddon, priceList: updated })
-                    }}
+                    readOnly
+                    disabled
                   />
                   <Input
                     className="col-span-3"
@@ -735,6 +754,14 @@ export default function ObituaryAddonsPage() {
                     priceList: [...selectedAddon.priceList, { country: "", currencyCode: "", price: "" }],
                   })
                 }}
+                disabled={
+                  !selectedAddon ||
+                  // Disable if first item doesn't have country and price
+                  !selectedAddon.priceList[0]?.country || 
+                  !selectedAddon.priceList[0]?.price ||
+                  // Disable if all countries are already added
+                  selectedAddon.priceList.length >= countries.length
+                }
               >
                 <Plus className="h-4 w-4 mr-1" /> Add Price
               </Button>
@@ -743,7 +770,7 @@ export default function ObituaryAddonsPage() {
               <Label>Status:</Label>
               <Button
                 type="button"
-                variant={selectedAddon?.isActive ? "default" : "outline"}
+                variant={selectedAddon?.isActive === true ? "default" : "outline"}
                 onClick={() => selectedAddon && setSelectedAddon({ ...selectedAddon, isActive: true })}
                 size="sm"
               >
@@ -751,7 +778,7 @@ export default function ObituaryAddonsPage() {
               </Button>
               <Button
                 type="button"
-                variant={!selectedAddon?.isActive ? "default" : "outline"}
+                variant={selectedAddon?.isActive === false ? "default" : "outline"}
                 onClick={() => selectedAddon && setSelectedAddon({ ...selectedAddon, isActive: false })}
                 size="sm"
               >
