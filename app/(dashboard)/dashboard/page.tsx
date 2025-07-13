@@ -468,7 +468,13 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <DataTable columns={userColumns} data={recentUsers} />
+            <DataTable
+              columns={userColumns}
+              data={recentUsers}
+              currentPage={1}
+              totalPages={1}
+              totalItems={recentUsers.length}
+            />
           </CardContent>
         </Card>
 
@@ -486,7 +492,13 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <DataTable columns={obituaryColumns} data={recentObituaries} />
+            <DataTable
+              columns={obituaryColumns}
+              data={recentObituaries}
+              currentPage={1}
+              totalPages={1}
+              totalItems={recentObituaries.length}
+            />
           </CardContent>
         </Card>
       </div>
@@ -507,7 +519,13 @@ export default function DashboardPage() {
 
           </CardHeader>
           <CardContent>
-            <DataTable columns={adColumns} data={recentAds} />
+            <DataTable
+              columns={adColumns}
+              data={recentAds}
+              currentPage={1}
+              totalPages={1}
+              totalItems={recentAds.length}
+            />
           </CardContent>
         </Card>
 
@@ -526,7 +544,13 @@ export default function DashboardPage() {
 
           </CardHeader>
           <CardContent>
-            <DataTable columns={eventColumns} data={recentEvents} />
+            <DataTable
+              columns={eventColumns}
+              data={recentEvents}
+              currentPage={1}
+              totalPages={1}
+              totalItems={recentEvents.length}
+            />
           </CardContent>
         </Card>
       </div>
