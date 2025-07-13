@@ -28,9 +28,31 @@ type Package = {
     ta: { value: string }
     si: { value: string }
   }
-  price: number
+  basePrice: {
+    country: {
+      name: {
+        en: { value: string }[]
+        ta: { value: string }[]
+        si: { value: string }[]
+      }
+      _id: string
+      currencyCode: string
+    }
+    price: number
+  }
   isActive: boolean
-  addons: string[]
+  addons: {
+    _id: string
+    name: {
+      en: { name: string; value: string }[]
+      ta: { name: string; value: string }[]
+      si: { name: string; value: string }[]
+    }
+    priceList: {
+      country: string
+      price: number
+    }[]
+  }[]
   isObituary: boolean
   isRemembarace: boolean
   isPremium: boolean
@@ -38,7 +60,15 @@ type Package = {
   isDeleted: boolean
   wordLimit: number
   priceList: {
-    country: string
+    country: {
+      name: {
+        en: { value: string }[]
+        ta: { value: string }[]
+        si: { value: string }[]
+      }
+      _id: string
+      currencyCode: string
+    }
     currencyCode: string
     price: number
     _id: string
@@ -48,9 +78,18 @@ type Package = {
   noofAdditionalImages: number
   noofContectDetails: number
   noofBgColors: number
-  bgColors: string[]
+  bgColors: {
+    _id: string
+    name: string
+    colorCode: string
+    isActive: boolean
+  }[]
   noofPrimaryImageBgFrames: number
-  primaryImageBgFrames: string[]
+  primaryImageBgFrames: {
+    _id: string
+    frameImage: string
+    isActive: boolean
+  }[]
 }
 
 
@@ -83,7 +122,10 @@ const fetcher = async (url: string) => {
         ta: pkg.description.ta[0],
         si: pkg.description.si[0],
       },
-      addons: pkg.addons,
+      // Keep addons, bgColors, and primaryImageBgFrames as they are (don't flatten them)
+      addons: pkg.addons || [],
+      bgColors: pkg.bgColors || [],
+      primaryImageBgFrames: pkg.primaryImageBgFrames || [],
     })),
   }))
 }
@@ -93,6 +135,8 @@ export default function PackagePage() {
   const { toast } = useToast()
   const { t } = useLanguage()
   const [viewPackage, setViewPackage] = useState<Package | null>(null)
+  const [viewPackageData, setViewPackageData] = useState<any | null>(null)
+  const [isLoadingViewData, setIsLoadingViewData] = useState(false)
   const [deletePackage, setDeletePackage] = useState<Package | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [page, setPage] = useState(1)
@@ -108,7 +152,44 @@ export default function PackagePage() {
   }
 
   const handleEditPackage = (packageId: string) => {
-    router.push(`/obituary/edit/${packageId}`)
+    console.log("Editing package:", packageId)
+    router.push(`/obituary/packages/${packageId}`)
+  }
+
+  const fetchPackageDetails = async (packageId: string) => {
+    setIsLoadingViewData(true)
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/obituaryRemembarance-packages/${packageId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch package details")
+      }
+
+      const packageData = await response.json()
+      console.log("Fetched package details:", packageData)
+      setViewPackageData(packageData)
+    } catch (error) {
+      console.error("Error fetching package details:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load package details. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingViewData(false)
+    }
+  }
+
+  const handleViewPackage = (pkg: Package) => {
+    console.log("View button clicked - Package data:", pkg)
+    setViewPackage(pkg)
+    fetchPackageDetails(pkg.id)
   }
 
   const handleDeletePackage = async () => {
@@ -117,7 +198,7 @@ export default function PackagePage() {
 
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/packages/${deletePackage.id}`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/obituaryRemembarance-packages/${deletePackage.id}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -146,9 +227,13 @@ export default function PackagePage() {
       cell: ({ row }) => <div className="font-medium max-w-[300px] truncate">{row.original.description.en.value}</div>,
     },
     {
-      accessorKey: "price",
+      accessorKey: "basePrice.price",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Price" type="number" />,
-      cell: ({ row }) => <div className="font-medium">{row.original.price}</div>,
+      cell: ({ row }) => (
+        <div className="font-medium">
+          {row.original.basePrice?.price || 0} {row.original.basePrice?.country?.currencyCode || 'N/A'}
+        </div>
+      ),
     },
     {
       accessorKey: "isActive",
@@ -174,7 +259,7 @@ export default function PackagePage() {
       id: "actions",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => setViewPackage(row.original)}>
+          <Button variant="ghost" size="icon" onClick={() => handleViewPackage(row.original)}>
             <Eye className="h-4 w-4" />
             <span className="sr-only">View</span>
           </Button>
@@ -216,115 +301,196 @@ export default function PackagePage() {
         onPageSizeChange={(newSize) => setPageSize(newSize)}
       />
 
-      <ViewDialog open={!!viewPackage} onOpenChange={(open) => !open && setViewPackage(null)} title="Package Details">
+      <ViewDialog 
+        open={!!viewPackage} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewPackage(null)
+            setViewPackageData(null)
+          }
+        }} 
+        title="Package Details"
+      >
         {viewPackage && (
           <div className="space-y-8">
-            <Tabs defaultValue="en" className="w-full">
-              <TabsList>
-                <TabsTrigger value="en">English</TabsTrigger>
-                <TabsTrigger value="ta">Tamil</TabsTrigger>
-                <TabsTrigger value="si">Sinhala</TabsTrigger>
-              </TabsList>
+            {isLoadingViewData ? (
+              <div className="text-center py-8">
+                <div className="text-lg">Loading package details...</div>
+              </div>
+            ) : viewPackageData ? (
+              <>
+                <Tabs defaultValue="en" className="w-full">
+                  <TabsList>
+                    <TabsTrigger value="en">English</TabsTrigger>
+                    <TabsTrigger value="ta">Tamil</TabsTrigger>
+                    <TabsTrigger value="si">Sinhala</TabsTrigger>
+                  </TabsList>
 
-              {["en", "ta", "si"].map((lang) => (
-                <TabsContent key={lang} value={lang} className="space-y-4">
-                  <div className="space-y-2 py-4">
-                    <h3 className="font-medium text-sm text-muted-foreground">Name</h3>
-                    <p className="font-medium">{viewPackage.name[lang as keyof typeof viewPackage.name].value}</p>
+                  {["en", "ta", "si"].map((lang) => (
+                    <TabsContent key={lang} value={lang} className="space-y-4">
+                      <div className="space-y-2 py-4">
+                        <h3 className="font-medium text-sm text-muted-foreground">Name</h3>
+                        <p className="font-medium">
+                          {viewPackageData.name?.[lang]?.[0]?.value || 'N/A'}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h3 className="font-medium text-sm text-muted-foreground">Description</h3>
+                        <p className="whitespace-pre-wrap">
+                          {viewPackageData.description?.[lang]?.[0]?.value || 'N/A'}
+                        </p>
+                      </div>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+
+                <div className="grid grid-cols-3 gap-4 pt-4">
+                  <div>
+                    <h3 className="font-medium text-sm text-muted-foreground">Base Price</h3>
+                    <p>{viewPackageData.basePrice?.price || 0} ({viewPackageData.basePrice?.country?.currencyCode || 'N/A'})</p>
                   </div>
-
-                  <div className="space-y-2">
-                    <h3 className="font-medium text-sm text-muted-foreground">Description</h3>
-                    <p className="whitespace-pre-wrap">{viewPackage.description[lang as keyof typeof viewPackage.description].value}</p>
+                  <div>
+                    <h3 className="font-medium text-sm text-muted-foreground">Status</h3>
+                    <Badge variant={viewPackageData.isActive === true ? "default" : "secondary"}>
+                      {viewPackageData.isActive ? "Active" : "Inactive"}
+                    </Badge>
                   </div>
-                </TabsContent>
-              ))}
-            </Tabs>
+                  <div>
+                    <h3 className="font-medium text-sm text-muted-foreground">Duration</h3>
+                    <p>{viewPackageData.duration} days</p>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-3 gap-4 pt-4">
-              <div>
-                <h3 className="font-medium text-sm text-muted-foreground">Price</h3>
-                <p>{viewPackage.price}</p>
-              </div>
-              <div>
-                <h3 className="font-medium text-sm text-muted-foreground">Status</h3>
-                <Badge variant={viewPackage.isActive === true ? "default" : "secondary"}>
-                  {viewPackage.isActive ? "Active" : "Inactive"}
-                </Badge>
-              </div>
-              <div>
-                <h3 className="font-medium text-sm text-muted-foreground">Duration</h3>
-                <p>{viewPackage.duration} days</p>
-              </div>
-            </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <h3 className="font-medium text-sm text-muted-foreground">Word Limit</h3>
+                    <p>{viewPackageData.wordLimit}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-sm text-muted-foreground">Is Obituary</h3>
+                    <p>{viewPackageData.isObituary ? "Yes" : "No"}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-sm text-muted-foreground">Is Remembrance</h3>
+                    <p>{viewPackageData.isRemembarace ? "Yes" : "No"}</p>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <h3 className="font-medium text-sm text-muted-foreground">Word Limit</h3>
-                <p>{viewPackage.wordLimit}</p>
-              </div>
-              <div>
-                <h3 className="font-medium text-sm text-muted-foreground">Is Obituary</h3>
-                <p>{viewPackage.isObituary ? "Yes" : "No"}</p>
-              </div>
-              <div>
-                <h3 className="font-medium text-sm text-muted-foreground">Is Remembrance</h3>
-                <p>{viewPackage.isRemembarace ? "Yes" : "No"}</p>
-              </div>
-            </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <h3 className="font-medium text-sm text-muted-foreground">Is Premium</h3>
+                    <p>{viewPackageData.isPremium ? "Yes" : "No"}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-sm text-muted-foreground">Additional Images</h3>
+                    <p>{viewPackageData.isAdditionalImages ? `Yes (${viewPackageData.noofAdditionalImages})` : "No"}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-sm text-muted-foreground">Contact Details</h3>
+                    <p>{viewPackageData.noofContectDetails}</p>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <h3 className="font-medium text-sm text-muted-foreground">Is Premium</h3>
-                <p>{viewPackage.isPremium ? "Yes" : "No"}</p>
+                <div className="space-y-4">
+                  <h3 className="font-medium text-sm text-muted-foreground">Add-ons</h3>
+                  {viewPackageData.addons && viewPackageData.addons.length > 0 ? (
+                    <ul className="list-disc pl-5">
+                      {viewPackageData.addons.map((addon: any, index: number) => {
+                        // Get the addon name, preferring English
+                        const addonName = addon?.name?.en?.[0]?.value || 
+                                         addon?.name?.ta?.[0]?.value || 
+                                         addon?.name?.si?.[0]?.value || 
+                                         'Unnamed Addon'
+                        
+                        // Get price if available
+                        const price = addon?.priceList?.[0]?.price || 0
+                        
+                        return (
+                          <li key={addon?._id || index}>
+                            {addonName}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No add-ons included</p>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-medium text-sm text-muted-foreground">Price List</h3>
+                  {viewPackageData.priceList && viewPackageData.priceList.length > 0 ? (
+                    <ul className="list-disc pl-5">
+                      {viewPackageData.priceList.map((priceItem: any, index: number) => {
+                        // Get the country name, preferring English
+                        const countryName = priceItem?.country?.name?.en?.[0]?.value || 
+                                          priceItem?.country?.name?.ta?.[0]?.value || 
+                                          priceItem?.country?.name?.si?.[0]?.value || 
+                                          'Unknown Country'
+                        
+                        return (
+                          <li key={priceItem?._id || index}>
+                            {countryName} ({priceItem?.country?.currencyCode || 'N/A'}): {priceItem?.price || 0}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No country-specific pricing available</p>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-medium text-sm text-muted-foreground">Background Colors</h3>
+                  {viewPackageData.bgColors && viewPackageData.bgColors.length > 0 ? (
+                    <ul className="list-disc pl-5">
+                      {viewPackageData.bgColors.map((color: any, index: number) => (
+                        <li key={color?._id || index} className="flex items-center gap-2">
+                          <div
+                            className="h-4 w-4 rounded-full border"
+                            style={{ backgroundColor: color?.colorCode || '#ccc' }}
+                          />
+                          <span>{color?.name || 'Unknown Color'}</span>
+                          <span className="text-xs text-muted-foreground">({color?.colorCode || 'N/A'})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No background colors included</p>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-medium text-sm text-muted-foreground">Primary Image Background Frames</h3>
+                  {viewPackageData.primaryImageBgFrames && viewPackageData.primaryImageBgFrames.length > 0 ? (
+                    <ul className="list-disc pl-5">
+                      {viewPackageData.primaryImageBgFrames.map((frame: any, index: number) => (
+                        <li key={frame._id || index} className="flex items-center gap-2">
+                          <img
+                            src={frame.frameImage}
+                            alt={`Frame ${frame._id || index}`}
+                            className="h-8 w-8 object-cover rounded border"
+                            onError={(e) => {
+                              // Hide broken images
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                          <span>Frame {frame._id ? frame._id.slice(-4) : `#${index + 1}`}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No background frames included</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-lg text-destructive">Failed to load package details</div>
+                <p className="text-muted-foreground mt-2">Please try again.</p>
               </div>
-              <div>
-                <h3 className="font-medium text-sm text-muted-foreground">Additional Images</h3>
-                <p>{viewPackage.isAdditionalImages ? `Yes (${viewPackage.noofAdditionalImages})` : "No"}</p>
-              </div>
-              <div>
-                <h3 className="font-medium text-sm text-muted-foreground">Contact Details</h3>
-                <p>{viewPackage.noofContectDetails}</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="font-medium text-sm text-muted-foreground">Add-ons</h3>
-              <ul className="list-disc pl-5">
-                {viewPackage.addons.map((addon, index) => (
-                  <li key={index}>{addon}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="font-medium text-sm text-muted-foreground">Price List</h3>
-              <ul className="list-disc pl-5">
-                {viewPackage.priceList.map((priceItem) => (
-                  <li key={priceItem._id}>
-                    {priceItem.country} ({priceItem.currencyCode}): {priceItem.price}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="font-medium text-sm text-muted-foreground">Background Colors</h3>
-              <ul className="list-disc pl-5">
-                {viewPackage.bgColors.map((color, index) => (
-                  <li key={index}>{color}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="font-medium text-sm text-muted-foreground">Primary Image Background Frames</h3>
-              <ul className="list-disc pl-5">
-                {viewPackage.primaryImageBgFrames.map((frame, index) => (
-                  <li key={index}>{frame}</li>
-                ))}
-              </ul>
-            </div>
+            )}
           </div>
         )}
       </ViewDialog>
