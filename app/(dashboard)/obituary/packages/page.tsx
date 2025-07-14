@@ -56,6 +56,8 @@ type Package = {
   isObituary: boolean
   isRemembarace: boolean
   isPremium: boolean
+  isPriority: boolean
+  isFeatured: boolean
   duration: number
   isDeleted: boolean
   wordLimit: number
@@ -383,12 +385,27 @@ export default function PackagePage() {
                     <p>{viewPackageData.isPremium ? "Yes" : "No"}</p>
                   </div>
                   <div>
+                    <h3 className="font-medium text-sm text-muted-foreground">Is Priority</h3>
+                    <p>{viewPackageData.isPriority ? "Yes" : "No"}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-sm text-muted-foreground">Is Featured</h3>
+                    <p>{viewPackageData.isFeatured ? "Yes" : "No"}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
                     <h3 className="font-medium text-sm text-muted-foreground">Additional Images</h3>
                     <p>{viewPackageData.isAdditionalImages ? `Yes (${viewPackageData.noofAdditionalImages})` : "No"}</p>
                   </div>
                   <div>
                     <h3 className="font-medium text-sm text-muted-foreground">Contact Details</h3>
                     <p>{viewPackageData.noofContectDetails}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-sm text-muted-foreground">Tribute Video Uploading</h3>
+                    <p>{viewPackageData.isTributeVideoUploading ? "Yes" : "No"}</p>
                   </div>
                 </div>
 
