@@ -17,6 +17,7 @@ import { DataTableFacetedFilter } from "@/components/data-table-faceted-filter"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Types for flower tribute
 interface Price {
@@ -84,6 +85,35 @@ export default function TributeFlowersPage() {
     const [editIsActive, setEditIsActive] = useState(true)
     const [editImage, setEditImage] = useState<File | null>(null)
     const [editLoading, setEditLoading] = useState(false)
+    const [countries, setCountries] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchCountries = async () => {
+            const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/country/all`, {
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                },
+            });
+            const data = await res.json();
+            setCountries(data.countries);
+        };
+
+        fetchCountries();
+    }, []);
+
+    const getCountryName = (id: string, lang: "en" | "ta" | "si" = "en") => {
+        if (!Array.isArray(countries)) return id;
+        const country = countries.find((c) => c._id === id);
+        return country?.name?.[lang]?.[0]?.value || id;
+    };
+
+    const getCurrencyCode = (id: string) => {
+        if (!Array.isArray(countries)) return "";
+        const country = countries.find((c) => c._id === id);
+        return country?.currencyCode || "";
+    };
 
     const { data, error, isLoading, mutate } = useSWR(
         `${process.env.NEXT_PUBLIC_API_URL}/tribute-items/flower-type/all?page=${page}&limit=${pageSize}`,
@@ -104,16 +134,24 @@ export default function TributeFlowersPage() {
     }
 
     const handlePriceChange = (idx: number, field: string, value: string) => {
-        setAddPriceList(addPriceList.map((item, i) =>
-            i === idx ? { ...item, [field]: value } : item
-        ))
+        setAddPriceList(addPriceList.map((item, i) => {
+            if (i === idx) {
+                if (field === "country") {
+                    // Auto-set currency code when country changes
+                    const currencyCode = getCurrencyCode(value);
+                    return { ...item, [field]: value, currencyCode };
+                }
+                return { ...item, [field]: value };
+            }
+            return item;
+        }))
     }
 
     const handleAddSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!addName || !addImage) return
         // Validate priceList
-        if (addPriceList.some(p => !p.country || !p.currencyCode || !p.price)) {
+        if (addPriceList.some(p => !p.country || !p.price)) {
             toast({
                 title: "Error",
                 description: "Please fill all price fields.",
@@ -130,7 +168,6 @@ export default function TributeFlowersPage() {
             formData.append("priceList", JSON.stringify(
                 addPriceList.map(p => ({
                     country: p.country,
-                    currencyCode: p.currencyCode,
                     price: Number(p.price)
                 }))
             ))
@@ -172,7 +209,7 @@ export default function TributeFlowersPage() {
         setEditPriceList(
             flower.priceList.map(p => ({
                 country: p.country,
-                currencyCode: p.currencyCode,
+                currencyCode: getCurrencyCode(p.country),
                 price: p.price.toString()
             }))
         )
@@ -189,15 +226,23 @@ export default function TributeFlowersPage() {
     }
 
     const handleEditPriceChange = (idx: number, field: string, value: string) => {
-        setEditPriceList(editPriceList.map((item, i) =>
-            i === idx ? { ...item, [field]: value } : item
-        ))
+        setEditPriceList(editPriceList.map((item, i) => {
+            if (i === idx) {
+                if (field === "country") {
+                    // Auto-set currency code when country changes
+                    const currencyCode = getCurrencyCode(value);
+                    return { ...item, [field]: value, currencyCode };
+                }
+                return { ...item, [field]: value };
+            }
+            return item;
+        }))
     }
 
     const handleEditSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!editFlowerId || !editName) return
-        if (editPriceList.some(p => !p.country || !p.currencyCode || !p.price)) {
+        if (editPriceList.some(p => !p.country || !p.price)) {
             toast({
                 title: "Error",
                 description: "Please fill all price fields.",
@@ -217,7 +262,6 @@ export default function TributeFlowersPage() {
                 JSON.stringify(
                     editPriceList.map(p => ({
                         country: p.country,
-                        currencyCode: p.currencyCode,
                         price: Number(p.price)
                     }))
                 )
@@ -432,7 +476,7 @@ export default function TributeFlowersPage() {
                             <ul>
                                 {viewFlower.priceList.map((price) => (
                                     <li key={price._id}>
-                                        {price.country}: {price.currencyCode} {price.price}
+                                        {getCountryName(price.country)}: {getCurrencyCode(price.country)} {price.price}
                                     </li>
                                 ))}
                             </ul>
@@ -484,6 +528,7 @@ export default function TributeFlowersPage() {
                                 accept="image/*"
                                 onChange={e => setAddImage(e.target.files?.[0] || null)}
                                 required
+                                className="file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
                             />
                         </div>
                         <div>
@@ -491,23 +536,39 @@ export default function TributeFlowersPage() {
                             <div className="space-y-2">
                                 {addPriceList.map((price, idx) => (
                                     <div key={idx} className="flex gap-2 items-end">
+                                        <Select
+                                            value={price.country || ""}
+                                            onValueChange={(value) => handlePriceChange(idx, "country", value)}
+                                        >
+                                            <SelectTrigger className="flex-1">
+                                                <SelectValue placeholder="Select Country" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {countries
+                                                    .filter(country => 
+                                                        !addPriceList.some((p, i) => i !== idx && p.country === country._id)
+                                                    )
+                                                    .map((country) => (
+                                                        <SelectItem key={country._id} value={country._id}>
+                                                            {country.name?.en?.[0]?.value || country._id}
+                                                        </SelectItem>
+                                                    ))
+                                                }
+                                            </SelectContent>
+                                        </Select>
                                         <Input
-                                            placeholder="Country"
-                                            value={price.country}
-                                            onChange={e => handlePriceChange(idx, "country", e.target.value)}
-                                            required
+                                            className="flex-1"
+                                            placeholder="Currency"
+                                            value={price.currencyCode || ""}
+                                            readOnly
+                                            disabled
                                         />
                                         <Input
-                                            placeholder="Currency Code"
-                                            value={price.currencyCode}
-                                            onChange={e => handlePriceChange(idx, "currencyCode", e.target.value)}
-                                            required
-                                        />
-                                        <Input
+                                            className="flex-1"
                                             placeholder="Price"
                                             type="number"
                                             min="0"
-                                            value={price.price}
+                                            value={price.price || ""}
                                             onChange={e => handlePriceChange(idx, "price", e.target.value)}
                                             required
                                         />
@@ -523,7 +584,16 @@ export default function TributeFlowersPage() {
                                         )}
                                     </div>
                                 ))}
-                                <Button type="button" variant="outline" onClick={handleAddPriceRow}>
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    onClick={handleAddPriceRow}
+                                    disabled={
+                                        !addPriceList[0]?.country || 
+                                        !addPriceList[0]?.price ||
+                                        addPriceList.length >= countries.length
+                                    }
+                                >
                                     + Add Price
                                 </Button>
                             </div>
@@ -555,48 +625,53 @@ export default function TributeFlowersPage() {
                             />
                         </div>
                         <div>
-                            <Label htmlFor="flower-image">Image</Label>
+                            <Label htmlFor="flower-image">Image (optional - leave empty to keep current image)</Label>
                             <Input
                                 id="flower-image"
                                 type="file"
                                 accept="image/*"
                                 onChange={e => setEditImage(e.target.files?.[0] || null)}
-                                required
+                                className="file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
                             />
-                        </div>
-                        <div>
-                            <Label>Status</Label>
-                            <select
-                                className="w-full border rounded px-2 py-1"
-                                value={editIsActive ? "true" : "false"}
-                                onChange={e => setEditIsActive(e.target.value === "true")}
-                            >
-                                <option value="true">Active</option>
-                                <option value="false">Inactive</option>
-                            </select>
                         </div>
                         <div>
                             <Label>Prices</Label>
                             <div className="space-y-2">
                                 {editPriceList.map((price, idx) => (
                                     <div key={idx} className="flex gap-2 items-end">
+                                        <Select
+                                            value={price.country || ""}
+                                            onValueChange={(value) => handleEditPriceChange(idx, "country", value)}
+                                        >
+                                            <SelectTrigger className="flex-1">
+                                                <SelectValue placeholder="Select Country" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {countries
+                                                    .filter(country => 
+                                                        !editPriceList.some((p, i) => i !== idx && p.country === country._id)
+                                                    )
+                                                    .map((country) => (
+                                                        <SelectItem key={country._id} value={country._id}>
+                                                            {country.name?.en?.[0]?.value || country._id}
+                                                        </SelectItem>
+                                                    ))
+                                                }
+                                            </SelectContent>
+                                        </Select>
                                         <Input
-                                            placeholder="Country"
-                                            value={price.country}
-                                            onChange={e => handleEditPriceChange(idx, "country", e.target.value)}
-                                            required
+                                            className="flex-1"
+                                            placeholder="Currency"
+                                            value={price.currencyCode || ""}
+                                            readOnly
+                                            disabled
                                         />
                                         <Input
-                                            placeholder="Currency Code"
-                                            value={price.currencyCode}
-                                            onChange={e => handleEditPriceChange(idx, "currencyCode", e.target.value)}
-                                            required
-                                        />
-                                        <Input
+                                            className="flex-1"
                                             placeholder="Price"
                                             type="number"
                                             min="0"
-                                            value={price.price}
+                                            value={price.price || ""}
                                             onChange={e => handleEditPriceChange(idx, "price", e.target.value)}
                                             required
                                         />
@@ -612,8 +687,38 @@ export default function TributeFlowersPage() {
                                         )}
                                     </div>
                                 ))}
-                                <Button type="button" variant="outline" onClick={handleEditPriceRow}>
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    onClick={handleEditPriceRow}
+                                    disabled={
+                                        !editPriceList[0]?.country || 
+                                        !editPriceList[0]?.price ||
+                                        editPriceList.length >= countries.length
+                                    }
+                                >
                                     + Add Price
+                                </Button>
+                            </div>
+                        </div>
+                        <div>
+                            <Label>Status</Label>
+                            <div className="flex items-center gap-2 mt-2">
+                                <Button
+                                    type="button"
+                                    variant={editIsActive ? "default" : "outline"}
+                                    onClick={() => setEditIsActive(true)}
+                                    size="sm"
+                                >
+                                    Active
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant={!editIsActive ? "default" : "outline"}
+                                    onClick={() => setEditIsActive(false)}
+                                    size="sm"
+                                >
+                                    Inactive
                                 </Button>
                             </div>
                         </div>
