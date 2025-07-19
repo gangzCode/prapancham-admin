@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Plus, Eye, Pencil, Trash2, Calendar } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Plus, Eye, Pencil, Trash2, Calendar, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { ColumnDef } from "@tanstack/react-table"
 import { PageHeader } from "@/components/page-header"
@@ -20,117 +20,58 @@ import { Label } from "@/components/ui/label"
 import { DataTableColumnHeader } from "@/components/data-table-column-header"
 import { DataTableFacetedFilter } from "@/components/data-table-faceted-filter"
 
-// Sample data for obituary posts
+// Type definitions for API response
 type ObituaryPost = {
-    id: string
-    name: string
-    title: string
-    package: {
-        id: string
-        name: string
+    _id: string
+    username: string
+    information: {
+        title: string
+        address: string
+        dateofBirth: string
+        dateofDeath: string
+        description: string
+        tributeVideo?: string
+        shortDescription?: string
     }
+    primaryImage: string
+    thumbnailImage: string
+    selectedPackage: {
+        name: {
+            en: Array<{ name: string; value: string; _id: string }>
+            ta: Array<{ name: string; value: string; _id: string }>
+            si: Array<{ name: string; value: string; _id: string }>
+        }
+        _id: string
+        duration: number
+    }
+    orderStatus: string
     expiryDate: string
-    status: "active" | "expired" | "pending" | "rejected"
-    description: string
-    image: string
-    dateOfBirth: string
-    dateOfDeath: string
+    contactDetails: Array<{
+        country: string
+        address: string
+        phoneNumber: string
+        name: string
+        relationship: string
+        email: string
+        _id: string
+    }>
+    additionalImages: string[]
+    slideshowImages: string[]
+    selectedBgColor?: {
+        colorCode: string
+    }
     createdAt: string
     updatedAt: string
 }
 
-const obituaryPosts: ObituaryPost[] = [
-    {
-        id: "1",
-        name: "James Wilson",
-        title: "In Loving Memory of James Wilson",
-        package: {
-            id: "1",
-            name: "Premium",
-        },
-        expiryDate: "2023-12-15",
-        status: "active",
-        description:
-            "James Wilson was a beloved father, husband, and community leader who touched many lives with his kindness and generosity.",
-        image: "/placeholder.svg?height=200&width=200",
-        dateOfBirth: "1945-03-10",
-        dateOfDeath: "2023-05-15",
-        createdAt: "2023-05-16",
-        updatedAt: "2023-05-16",
-    },
-    {
-        id: "2",
-        name: "Mary Johnson",
-        title: "Remembering Mary Johnson",
-        package: {
-            id: "2",
-            name: "Standard",
-        },
-        expiryDate: "2023-11-14",
-        status: "active",
-        description:
-            "Mary Johnson dedicated her life to education and helping others. She will be deeply missed by her students and colleagues.",
-        image: "/placeholder.svg?height=200&width=200",
-        dateOfBirth: "1950-07-22",
-        dateOfDeath: "2023-05-14",
-        createdAt: "2023-05-15",
-        updatedAt: "2023-05-15",
-    },
-    {
-        id: "3",
-        name: "David Brown",
-        title: "Celebrating the Life of David Brown",
-        package: {
-            id: "1",
-            name: "Premium",
-        },
-        expiryDate: "2023-10-13",
-        status: "expired",
-        description:
-            "David Brown was known for his entrepreneurial spirit and commitment to his family. His legacy will continue through his charitable foundation.",
-        image: "/placeholder.svg?height=200&width=200",
-        dateOfBirth: "1938-11-05",
-        dateOfDeath: "2023-05-13",
-        createdAt: "2023-05-14",
-        updatedAt: "2023-05-14",
-    },
-    {
-        id: "4",
-        name: "Sarah Miller",
-        title: "In Memory of Sarah Miller",
-        package: {
-            id: "3",
-            name: "Basic",
-        },
-        expiryDate: "2023-09-12",
-        status: "pending",
-        description:
-            "Sarah Miller brought joy to everyone she met. Her passion for music and art inspired many in the community.",
-        image: "/placeholder.svg?height=200&width=200",
-        dateOfBirth: "1962-04-18",
-        dateOfDeath: "2023-05-12",
-        createdAt: "2023-05-13",
-        updatedAt: "2023-05-13",
-    },
-    {
-        id: "5",
-        name: "Thomas Davis",
-        title: "Honoring Thomas Davis",
-        package: {
-            id: "2",
-            name: "Standard",
-        },
-        expiryDate: "2023-08-11",
-        status: "rejected",
-        description:
-            "Thomas Davis served his country with honor and distinction. He was a loving father and grandfather who valued family above all else.",
-        image: "/placeholder.svg?height=200&width=200",
-        dateOfBirth: "1940-09-30",
-        dateOfDeath: "2023-05-11",
-        createdAt: "2023-05-12",
-        updatedAt: "2023-05-12",
-    },
-]
+type ApiResponse = {
+    orders: ObituaryPost[]
+    pagination: {
+        currentPage: number
+        totalPages: number
+        totalItems: number
+    }
+}
 
 export default function ObituaryPostsPage() {
     const router = useRouter()
@@ -142,35 +83,112 @@ export default function ObituaryPostsPage() {
     const [newStatus, setNewStatus] = useState<string>("")
     const [isDeleting, setIsDeleting] = useState(false)
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+    const [obituaryPosts, setObituaryPosts] = useState<ObituaryPost[]>([])
+    const [loading, setLoading] = useState(false)
+    const [pagination, setPagination] = useState({
+        currentPage: 1,
+        totalPages: 1,
+        totalItems: 0
+    })
+
+    const [pageSize, setPageSize] = useState(10)
+
+    // Fetch obituary posts from API
+    const fetchObituaryPosts = async (page: number = 1, limit: number = 10) => {
+        setLoading(true)
+        try {
+            // Get token from localStorage
+            const token = localStorage.getItem('token')
+            
+            const response = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/order/all?page=${page}&limit=${limit}`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token && { 'Authorization': `Bearer ${token}` }),
+                    },
+                }
+            )
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch obituary posts')
+            }
+
+            const data: ApiResponse = await response.json()
+            setObituaryPosts(data.orders)
+            setPagination(data.pagination)
+        } catch (error) {
+            console.error('Error fetching obituary posts:', error)
+            toast({
+                title: "Error",
+                description: "Failed to fetch obituary posts. Please try again.",
+                variant: "destructive",
+            })
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    // Load data on component mount
+    useEffect(() => {
+        fetchObituaryPosts(pagination.currentPage, pageSize)
+    }, [])
+
+    const handlePageChange = (page: number) => {
+        fetchObituaryPosts(page, pageSize)
+    }
+
+    const handlePageSizeChange = (newPageSize: number) => {
+        setPageSize(newPageSize)
+        fetchObituaryPosts(1, newPageSize)
+    }
 
     const handleAddPost = () => {
         router.push("/obituary/posts/new")
     }
 
     const handleEditPost = (postId: string) => {
-        router.push(`/obituary/posts/edit/${postId}`)
+        router.push(`/obituary/posts/${postId}`)
     }
 
     const handleDeletePost = async () => {
         if (!deletePost) return
-
         setIsDeleting(true)
-
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        toast({
-            title: "Obituary post deleted",
-            description: `"${deletePost.name}" has been deleted successfully.`,
-        })
-
-        setIsDeleting(false)
-        setDeletePost(null)
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/order/${deletePost._id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` }),
+                },
+            })
+            if (!response.ok) {
+                throw new Error('Failed to delete obituary post')
+            }
+            toast({
+                title: "Obituary post deleted",
+                description: `"${deletePost.information.title}" has been deleted successfully.`,
+            })
+            // Refresh the list
+            fetchObituaryPosts(pagination.currentPage, pageSize)
+        } catch (error) {
+            console.error('Error deleting obituary post:', error)
+            toast({
+                title: "Error",
+                description: "Failed to delete obituary post. Please try again.",
+                variant: "destructive",
+            })
+        } finally {
+            setIsDeleting(false)
+            setDeletePost(null)
+        }
     }
 
     const handleOpenStatusChange = (post: ObituaryPost) => {
         setStatusPost(post)
-        setNewStatus(post.status)
+        setNewStatus(post.orderStatus)
     }
 
     const handleStatusChange = async () => {
@@ -183,7 +201,7 @@ export default function ObituaryPostsPage() {
 
         toast({
             title: "Status updated",
-            description: `Status for "${statusPost.name}" has been updated to ${newStatus}.`,
+            description: `Status for "${statusPost.information.title}" has been updated to ${newStatus}.`,
         })
 
         setIsUpdatingStatus(false)
@@ -199,60 +217,87 @@ export default function ObituaryPostsPage() {
     }
 
     const getStatusBadge = (status: string) => {
-        switch (status) {
-            case "active":
-                return <Badge variant="default">Active</Badge>
+        switch (status.toLowerCase()) {
+            case "post approved":
+                return <Badge variant="default">Post Approved</Badge>
+            case "review requested":
+                return <Badge variant="outline">Review Requested</Badge>
+            case "approval denied":
+                return <Badge variant="destructive">Approval Denied</Badge>
+            case "requested for changes":
+                return <Badge variant="secondary">Requested for Changes</Badge>
             case "expired":
                 return <Badge variant="secondary">Expired</Badge>
-            case "pending":
-                return <Badge variant="outline">Pending</Badge>
-            case "rejected":
-                return <Badge variant="destructive">Rejected</Badge>
+            case "refunded":
+                return <Badge variant="outline">Refunded</Badge>
             default:
                 return <Badge variant="outline">{status}</Badge>
         }
     }
 
-    const uniquePackages = Array.from(new Set(obituaryPosts.map((post) => post.package.name))).map((packageName) => ({
+    const uniquePackages = Array.from(new Set(obituaryPosts.map((post) => post.selectedPackage?.name?.en?.[0]?.name || 'Unknown'))).map((packageName) => ({
         label: packageName,
         value: packageName,
     }))
 
     const columns: ColumnDef<ObituaryPost>[] = [
         {
-            accessorKey: "name",
+            id: "title",
+            accessorFn: (row) => row.information.title,
             header: ({ column }) => <DataTableColumnHeader column={column} title="Name" type="text" />,
             cell: ({ row }) => (
                 <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
-                        <AvatarImage src={row.original.image || "/placeholder.svg"} alt={row.original.name} />
-                        <AvatarFallback>{row.original.name.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={row.original.thumbnailImage || row.original.primaryImage || "/placeholder.svg"} alt={row.original.information.title} />
+                        <AvatarFallback>{row.original.information.title.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    <div className="font-medium">{row.original.name}</div>
+                    <div className="font-medium">{row.original.information.title}</div>
                 </div>
             ),
         },
         {
-            accessorKey: "title",
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Title" type="text" />,
-            cell: ({ row }) => <div className="max-w-[300px] truncate">{row.original.title}</div>,
+            id: "description",
+            accessorFn: (row) => row.information.shortDescription || row.information.description,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Description" type="text" />,
+            cell: ({ row }) => <div className="max-w-[300px] truncate">{row.original.information.shortDescription || row.original.information.description}</div>,
         },
         {
-            accessorKey: "package.name",
+            id: "package",
+            accessorFn: (row) => row.selectedPackage?.name?.en?.[0]?.name || 'Unknown',
             header: ({ column }) => (
                 <div className="flex items-center space-x-2">
                     <DataTableColumnHeader column={column} title="Package" type="text" />
                     <DataTableFacetedFilter column={column} title="Package" options={uniquePackages} />
                 </div>
             ),
+            cell: ({ row }) => <div>{row.original.selectedPackage?.name?.en?.[0]?.name || 'Unknown'}</div>,
         },
         {
-            accessorKey: "expiryDate",
+            id: "expiryDate",
+            accessorFn: (row) => {
+                if (!row.expiryDate) {
+                    const createdDate = new Date(row.createdAt)
+                    const duration = row.selectedPackage?.duration || 30
+                    const expiryDate = new Date(createdDate.getTime() + (duration * 24 * 60 * 60 * 1000))
+                    return expiryDate.toISOString()
+                }
+                return row.expiryDate
+            },
             header: ({ column }) => <DataTableColumnHeader column={column} title="Expiry Date" type="date" />,
-            cell: ({ row }) => <div>{formatDate(row.original.expiryDate)}</div>,
+            cell: ({ row }) => {
+                if (!row.original.expiryDate) {
+                    // Calculate expiry date from creation date + package duration
+                    const createdDate = new Date(row.original.createdAt)
+                    const duration = row.original.selectedPackage?.duration || 30
+                    const expiryDate = new Date(createdDate.getTime() + (duration * 24 * 60 * 60 * 1000))
+                    return <div>{formatDate(expiryDate.toISOString())}</div>
+                }
+                return <div>{formatDate(row.original.expiryDate)}</div>
+            },
         },
         {
-            accessorKey: "status",
+            id: "status",
+            accessorFn: (row) => row.orderStatus,
             header: ({ column }) => (
                 <div className="flex items-center space-x-2">
                     <DataTableColumnHeader column={column} title="Status" type="status" />
@@ -260,17 +305,19 @@ export default function ObituaryPostsPage() {
                         column={column}
                         title="Status"
                         options={[
-                            { label: "Active", value: "active" },
-                            { label: "Expired", value: "expired" },
-                            { label: "Pending", value: "pending" },
-                            { label: "Rejected", value: "rejected" },
+                            { label: "Review Requested", value: "Review Requested" },
+                            { label: "Post Approved", value: "Post Approved" },
+                            { label: "Approval Denied", value: "Approval Denied" },
+                            { label: "Requested for Changes", value: "Requested for Changes" },
+                            { label: "Expired", value: "Expired" },
+                            { label: "Refunded", value: "Refunded" },
                         ]}
                     />
                 </div>
             ),
             cell: ({ row }) => (
                 <div className="cursor-pointer" onClick={() => handleOpenStatusChange(row.original)}>
-                    {getStatusBadge(row.original.status)}
+                    {getStatusBadge(row.original.orderStatus)}
                 </div>
             ),
             filterFn: (row, id, value) => {
@@ -285,7 +332,7 @@ export default function ObituaryPostsPage() {
                         <Eye className="h-4 w-4" />
                         <span className="sr-only">View</span>
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleEditPost(row.original.id)}>
+                    <Button variant="ghost" size="icon" onClick={() => handleEditPost(row.original._id)}>
                         <Pencil className="h-4 w-4" />
                         <span className="sr-only">Edit</span>
                     </Button>
@@ -310,57 +357,74 @@ export default function ObituaryPostsPage() {
             // }}
             />
 
-            <DataTable columns={columns} data={obituaryPosts} searchKey="name" searchPlaceholder="Search posts..." />
+            {loading ? (
+                <div className="flex items-center justify-center py-10">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                    <span className="ml-2 text-sm text-muted-foreground">Loading obituary posts...</span>
+                </div>
+            ) : (
+                <DataTable 
+                    columns={columns} 
+                    data={obituaryPosts} 
+                    searchKey="title" 
+                    searchPlaceholder="Search posts..."
+                    currentPage={pagination.currentPage}
+                    totalPages={pagination.totalPages}
+                    totalItems={pagination.totalItems}
+                    onPageChange={handlePageChange}
+                    onPageSizeChange={handlePageSizeChange}
+                    pageSize={pageSize}
+                />
+            )}
 
-            {/* View Post Dialog */}
             <ViewDialog
                 open={!!viewPost}
                 onOpenChange={(open) => !open && setViewPost(null)}
-                title={viewPost?.title || "Obituary Details"}
+                title={viewPost?.information.title || "Obituary Details"}
+                className="max-w-6xl w-[90vw]"
             >
                 {viewPost && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <div className="md:col-span-2">
-                            <div
+                            <div 
                                 className="bg-gray-100 md:p-10 p-4"
+                                style={{ backgroundColor: viewPost.selectedBgColor?.colorCode || '#f3f4f6' }}
                             >
-                                <div
-                                    className="bg-white w-full  shadow-md"
-                                >
+                                <div className="bg-black w-full shadow-md">
                                     <div className="pt-4 pb-2 text-center max-w-lg mx-auto px-4">
-                                        <h1 className="text-xl font-bold text-primary mb-6">
-                                            31st day ceremony after death
+                                        <h1 className="text-xl font-bold text-white mb-6">
+                                            {viewPost.information.shortDescription || "In loving memory"}
                                         </h1>
 
                                         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 sm:gap-0">
-                                            <div className="text-gray-500  text-center flex md:flex-col">
+                                            <div className="text-gray-300 text-center flex md:flex-col">
                                                 <p>Birth<span className="md:hidden mr-1 ml-1">:</span></p>
-                                                <p>Birth date</p>
+                                                <p>{viewPost.information.dateofBirth ? formatDate(viewPost.information.dateofBirth) : 'N/A'}</p>
                                             </div>
 
                                             <img
-                                                alt="Portrait of Mr. Nadesh Rasathurai"
+                                                alt={`Portrait of ${viewPost.information.title}`}
                                                 className="w-40 sm:w-60 shadow-md aspect-square object-cover mx-auto sm:mx-4"
-                                                src="https://storage.googleapis.com/a1aa/image/Gq3Jh_7GVg1_qc9JxqqNf8LZ7c-13gEQYfPNoQDiPVc.jpg"
+                                                src={viewPost.primaryImage || "/placeholder.svg"}
                                             />
 
-                                            <div className="text-gray-500  text-center flex md:flex-col">
+                                            <div className="text-gray-300 text-center flex md:flex-col">
                                                 <p>Death<span className="md:hidden mr-1 ml-1">:</span></p>
-                                                <p>Death date</p>
+                                                <p>{viewPost.information.dateofDeath ? formatDate(viewPost.information.dateofDeath) : 'N/A'}</p>
                                             </div>
                                         </div>
 
-                                        <p className="text-[#880002] font-medium">
-                                            Mr. Nadesh Rasathurai
+                                        <p className="text-white font-medium">
+                                            {viewPost.information.title}
                                         </p>
                                     </div>
-
                                 </div>
                             </div>
+                            
                             <p className="text-justify mt-4">
-                                Lorem ipsum dolor sit amet consectetur. Vestibulum ut sodales quisque nibh est. Diam natoque scelerisque netus tellus. Est mus potenti dictum augue. Fringilla scelerisque sed ultricies dignissim nisi integer adipiscing. Convallis facilisis adipiscing odio ac. Pharetra vitae ultricies sit vel. Massa purus nibh auctor eros sollicitudin sollicitudin pharetra tristique. Arcu accumsan consectetur lobortis ut vel pellentesque quis libero nullam.
-                                Sed in viverra risus eros non nisl elit adipiscing praesent. Amet vel turpis et dis eget. Vel lectus tincidunt et mattis etiam.
+                                {viewPost.information.description || "No description available"}
                             </p>
+                            
                             <div className="flex justify-end gap-2 items-center self-stretch mt-4">
                                 <button className="gap-2.5 self-stretch shrink-0 px-4 py-3 my-auto text-body-xs text-[#0B4157] rounded border border-teal-900 border-solid min-h-6 shadow-[0px_4px_8px_rgba(0,0,0,0.25)]">
                                     Post Tribute
@@ -369,114 +433,113 @@ export default function ObituaryPostsPage() {
                                     Donate
                                 </button>
                             </div>
+                            
                             <div className="mt-8">
                                 <div className="flex-shrink min-w-0 max-w-full">
-                                    Contacts
+                                    <h3 className="text-xl font-bold text-gray-900 border-b border-gray-200 pb-2 mb-4">Contacts</h3>
                                 </div>
-                                <div className="bg-white p-6 shadow-md mb-4 flex  md:flex-row flex-col justify-between md:items-center">
-                                    <div>
-                                        <p className="text-[#880002]">Mr. Nadesh Rasathurai</p>
-                                        <p>no2. masdd,</p>
-                                        <p>sddd, sdsdddfd</p>
-                                        <p>Son</p>
-                                    </div>
-                                    <button className="mb-0 gap-2.5 self-stretch px-4 py-3 my-auto text-white whitespace-nowrap bg-[#0B4157] rounded min-h-6 shadow-[0px_4px_8px_rgba(0,0,0,0.25)]">
-                                        Request to Contact
-                                    </button>
-                                </div>
-                                <div className="bg-white p-6 shadow-md mb-4 flex  md:flex-row flex-col justify-between md:items-center">
-                                    <div>
-                                        <p className="text-[#880002]">Mr. Nadesh Rasathurai</p>
-                                        <p>no2. masdd,</p>
-                                        <p>sddd, sdsdddfd</p>
-                                        <p>Son</p>
-                                    </div>
-                                    <button className="mb-0 gap-2.5 self-stretch px-4 py-3 my-auto text-white whitespace-nowrap bg-[#0B4157] rounded min-h-6 shadow-[0px_4px_8px_rgba(0,0,0,0.25)]">
-                                        Request to Contact
-                                    </button>
-                                </div>
-                                <div className="bg-white p-6 shadow-md mb-4 flex  md:flex-row flex-col justify-between md:items-center">
-                                    <div>
-                                        <p className="text-[#880002]">Mr. Nadesh Rasathurai</p>
-                                        <p>no2. masdd,</p>
-                                        <p>sddd, sdsdddfd</p>
-                                        <p>Son</p>
-                                    </div>
-                                    <button className="mb-0 gap-2.5 self-stretch px-4 py-3 my-auto text-white whitespace-nowrap bg-[#0B4157] rounded min-h-6 shadow-[0px_4px_8px_rgba(0,0,0,0.25)]">
-                                        Request to Contact
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-
-
-                        {/* Right side advertisement section - 1/3 width on desktop */}
-                        <div className="md:col-span-1">
-                            <div className="bg-white p-2 shadow-md">
-                                <div className="flex-shrink min-w-0 max-w-full mt-2">
-                                    Overview
-                                </div>
-                                <div className="space-y-2 mt-2 p-2">
-                                    <p className="text-[#880002]">Mr. Nadesh Rasathurai</p>
-                                    <p className="text-gray-500">Birth Date</p>
-                                    <p className="text-gray-500">Death Date</p>
-                                    <p>Age</p>
-                                    <p>no2. masdd,sddd, sdsdddfd</p>
-                                    <p>Funeral Date</p>
-                                </div>
-                                <div className="flex-shrink min-w-0 max-w-full mt-4">
-                                    Poster's Information
-                                </div>
-                                <div className="space-y-2 mt-2 p-2">
-                                    <p className="text-[#880002]">Mr. Nadesh Rasathurai</p>
-                                    <p>no2. masdd,sddd, sdsdddfd</p>
-                                </div>
-                                <button className="w-full gap-2.5 self-stretch px-4 py-3 my-auto text-white whitespace-nowrap bg-[#0B4157] rounded min-h-6 shadow-[0px_4px_8px_rgba(0,0,0,0.25)]">
-                                    Request to Contact
-                                </button>
-                                <div className="flex-shrink min-w-0 max-w-full mt-8 mb-6">
-                                    Pictures
-                                </div>
-                                <div className="p-2">
-                                    <div className="bg-white p-2 shadow-md ">
-                                        <div className="grid grid-cols-[3fr_2fr] gap-2 pb-4">
-                                            <img
-                                                alt="Portrait of Mr. Nadesh Rasathurai"
-                                                className="w-full row-span-2 shadow-md h-full object-cover"
-                                                src="https://storage.googleapis.com/a1aa/image/Gq3Jh_7GVg1_qc9JxqqNf8LZ7c-13gEQYfPNoQDiPVc.jpg"
-                                            />
-                                            <img
-                                                alt="Portrait of Mr. Nadesh Rasathurai"
-                                                className="w-full shadow-md aspect-square object-cover"
-                                                src="https://storage.googleapis.com/a1aa/image/Gq3Jh_7GVg1_qc9JxqqNf8LZ7c-13gEQYfPNoQDiPVc.jpg"
-                                            />
-                                            <img
-                                                alt="Portrait of Mr. Nadesh Rasathurai"
-                                                className="w-full shadow-md aspect-square object-cover"
-                                                src="https://storage.googleapis.com/a1aa/image/Gq3Jh_7GVg1_qc9JxqqNf8LZ7c-13gEQYfPNoQDiPVc.jpg"
-                                            />
+                                {viewPost.contactDetails.map((contact, index) => (
+                                    <div key={contact._id} className="bg-white p-6 shadow-md mb-4 flex md:flex-row flex-col justify-between md:items-center">
+                                        <div>
+                                            <p className="text-[#880002]">{contact.name}</p>
+                                            <p>{contact.address}</p>
+                                            <p>{contact.phoneNumber}</p>
+                                            <p>{contact.relationship}</p>
                                         </div>
-
-                                        <button className="w-full gap-2.5 self-stretch px-4 py-3 my-auto text-white whitespace-nowrap bg-[#0B4157] rounded min-h-6 shadow-[0px_4px_8px_rgba(0,0,0,0.25)]">
+                                        <button className="mb-0 gap-2.5 self-stretch px-4 py-3 my-auto text-white whitespace-nowrap bg-[#0B4157] rounded min-h-6 shadow-[0px_4px_8px_rgba(0,0,0,0.25)]">
                                             Request to Contact
                                         </button>
                                     </div>
-                                </div>
+                                ))}
                             </div>
                         </div>
 
-
+                        {/* Right side - overview and information */}
+                        <div className="md:col-span-1">
+                            <div className="bg-white p-2 shadow-md">
+                                <div className="flex-shrink min-w-0 max-w-full mt-2">
+                                    <h3 className="text-xl font-bold text-gray-900 border-b border-gray-200 pb-2 mb-4">Overview</h3>
+                                </div>
+                                <div className="space-y-2 mt-2 p-2">
+                                    <p><span className="font-medium">Name:</span> {viewPost.information.title}</p>
+                                    <p><span className="font-medium">Birth Date:</span> {viewPost.information.dateofBirth ? format(new Date(viewPost.information.dateofBirth), "d/M/yyyy") : 'N/A'}</p>
+                                    <p><span className="font-medium">Death Date:</span> {viewPost.information.dateofDeath ? format(new Date(viewPost.information.dateofDeath), "d/M/yyyy") : 'N/A'}</p>
+                                    <p><span className="font-medium">Age:</span> {
+                                        viewPost.information.dateofBirth && viewPost.information.dateofDeath 
+                                            ? Math.floor((new Date(viewPost.information.dateofDeath).getTime() - new Date(viewPost.information.dateofBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25))
+                                            : 'N/A'
+                                    }</p>
+                                    <p><span className="font-medium">Address:</span> {viewPost.information.address || 'N/A'}</p>
+                                </div>
+                                
+                                <div className="flex-shrink min-w-0 max-w-full mt-4">
+                                    <h3 className="text-xl font-bold text-gray-900 border-b border-gray-200 pb-2 mb-4">Poster's Information</h3>
+                                </div>
+                                <div className="space-y-2 mt-2 p-2">
+                                    {viewPost.contactDetails.length > 0 ? (
+                                        <>
+                                            <p><span className="font-medium">Name:</span> {viewPost.contactDetails[0].name}</p>
+                                            <p><span className="font-medium">Relationship:</span> {viewPost.contactDetails[0].relationship}</p>
+                                            <p><span className="font-medium">Phone:</span> {viewPost.contactDetails[0].phoneNumber}</p>
+                                            <p><span className="font-medium">Email:</span> {viewPost.contactDetails[0].email}</p>
+                                            <p><span className="font-medium">Address:</span> {viewPost.contactDetails[0].address}</p>
+                                        </>
+                                    ) : (
+                                        <p>No contact information available</p>
+                                    )}
+                                    <p><span className="font-medium">Posted:</span> {formatDate(viewPost.createdAt)}</p>
+                                </div>
+                                
+                                <button className="w-full gap-2.5 self-stretch px-4 py-3 my-auto text-white whitespace-nowrap bg-[#0B4157] rounded min-h-6 shadow-[0px_4px_8px_rgba(0,0,0,0.25)]">
+                                    Request to Contact
+                                </button>
+                                
+                                {(viewPost.additionalImages.length > 0 || viewPost.slideshowImages.length > 0) && (
+                                    <>
+                                        <div className="flex-shrink min-w-0 max-w-full mt-8 mb-6">
+                                            <h3 className="text-xl font-bold text-gray-900 border-b border-gray-200 pb-2 mb-4">Pictures</h3>
+                                        </div>
+                                        <div className="p-2">
+                                            <div className="bg-white p-2 shadow-md">
+                                                <div className="grid grid-cols-2 gap-2 pb-4">
+                                                    {viewPost.slideshowImages.length > 0 ? (
+                                                        viewPost.slideshowImages.slice(0, 4).map((image, index) => (
+                                                            <img
+                                                                key={`slide-${index}`}
+                                                                alt={`Slideshow image ${index + 1}`}
+                                                                className="w-full shadow-md aspect-square object-cover"
+                                                                src={image}
+                                                            />
+                                                        ))
+                                                    ) : (
+                                                        viewPost.additionalImages.slice(0, 4).map((image, index) => (
+                                                            <img
+                                                                key={index}
+                                                                alt={`Additional image ${index + 1}`}
+                                                                className="w-full shadow-md aspect-square object-cover"
+                                                                src={image}
+                                                            />
+                                                        ))
+                                                    )}
+                                                </div>
+                                                <button className="w-full gap-2.5 self-stretch px-4 py-3 my-auto text-white whitespace-nowrap bg-[#0B4157] rounded min-h-6 shadow-[0px_4px_8px_rgba(0,0,0,0.25)]">
+                                                    View All Images
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 )}
             </ViewDialog>
 
-            {/* Delete Confirmation Dialog */}
             <ConfirmDialog
                 open={!!deletePost}
                 onOpenChange={(open) => !open && setDeletePost(null)}
                 title="Delete Obituary Post"
-                description={`Are you sure you want to delete the obituary post for "${deletePost?.name}"? This action cannot be undone.`}
+                description={`Are you sure you want to delete the obituary post for "${deletePost?.information.title}"? This action cannot be undone.`}
                 onConfirm={handleDeletePost}
                 loading={isDeleting}
             />
@@ -489,16 +552,18 @@ export default function ObituaryPostsPage() {
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="status">Status for {statusPost?.name}</Label>
+                            <Label htmlFor="status">Status for {statusPost?.information.title}</Label>
                             <Select value={newStatus} onValueChange={setNewStatus}>
                                 <SelectTrigger id="status">
                                     <SelectValue placeholder="Select status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="active">Active</SelectItem>
-                                    <SelectItem value="expired">Expired</SelectItem>
-                                    <SelectItem value="pending">Pending</SelectItem>
-                                    <SelectItem value="rejected">Rejected</SelectItem>
+                                    <SelectItem value="Review Requested">Review Requested</SelectItem>
+                                    <SelectItem value="Post Approved">Post Approved</SelectItem>
+                                    <SelectItem value="Approval Denied">Approval Denied</SelectItem>
+                                    <SelectItem value="Requested for Changes">Requested for Changes</SelectItem>
+                                    <SelectItem value="Expired">Expired</SelectItem>
+                                    <SelectItem value="Refunded">Refunded</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
