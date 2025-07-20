@@ -23,6 +23,7 @@ import { DataTableFacetedFilter } from "@/components/data-table-faceted-filter"
 // Type definitions for API response
 type ObituaryPost = {
     _id: string
+    orderId?: string
     username: string
     information: {
         title: string
@@ -99,7 +100,7 @@ export default function ObituaryPostsPage() {
         try {
             // Get token from localStorage
             const token = localStorage.getItem('token')
-            
+
             const response = await fetch(
                 `${process.env.NEXT_PUBLIC_API_URL}/order/all?page=${page}&limit=${limit}`,
                 {
@@ -196,12 +197,48 @@ export default function ObituaryPostsPage() {
 
         setIsUpdatingStatus(true)
 
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        const updatedStatusPost = {
+            ...statusPost,
+            orderStatus: newStatus,
+        }
+
+        // remove images fields from the updated post
+        const { thumbnailImage, primaryImage, additionalImages, slideshowImages, ...postData } = updatedStatusPost
+
+        // change the name of _id to orderId of postData
+        postData.orderId = postData._id
+        delete (postData as { _id?: string })._id
+
+        // convert postData to FormData
+        const formData = new FormData()
+        for (const key in postData as Record<string, unknown>) {
+            const value = (postData as Record<string, unknown>)[key];
+            if (typeof value === "object" && value !== null) {
+                formData.append(key, JSON.stringify(value));
+            } else if (typeof value !== "undefined") {
+                formData.append(key, String(value));
+            }
+        }
+
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL
+        const token = localStorage.getItem('token') || localStorage.getItem('accessToken')
+
+        const response = await fetch(`${apiUrl}/order/update`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+            body: formData,
+        })
+
+        if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.message || 'Failed to update obituary post status')
+        }
 
         toast({
             title: "Status updated",
-            description: `Status for "${statusPost.information.title}" has been updated to ${newStatus}.`,
+            description: `The status for "${statusPost.information.title}" has been updated to "${newStatus}".`,
         })
 
         setIsUpdatingStatus(false)
@@ -363,10 +400,10 @@ export default function ObituaryPostsPage() {
                     <span className="ml-2 text-sm text-muted-foreground">Loading obituary posts...</span>
                 </div>
             ) : (
-                <DataTable 
-                    columns={columns} 
-                    data={obituaryPosts} 
-                    searchKey="title" 
+                <DataTable
+                    columns={columns}
+                    data={obituaryPosts}
+                    searchKey="title"
                     searchPlaceholder="Search posts..."
                     currentPage={pagination.currentPage}
                     totalPages={pagination.totalPages}
@@ -386,7 +423,7 @@ export default function ObituaryPostsPage() {
                 {viewPost && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <div className="md:col-span-2">
-                            <div 
+                            <div
                                 className="bg-gray-100 md:p-10 p-4"
                                 style={{ backgroundColor: viewPost.selectedBgColor?.colorCode || '#f3f4f6' }}
                             >
@@ -420,11 +457,11 @@ export default function ObituaryPostsPage() {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <p className="text-justify mt-4">
                                 {viewPost.information.description || "No description available"}
                             </p>
-                            
+
                             <div className="flex justify-end gap-2 items-center self-stretch mt-4">
                                 <button className="gap-2.5 self-stretch shrink-0 px-4 py-3 my-auto text-body-xs text-[#0B4157] rounded border border-teal-900 border-solid min-h-6 shadow-[0px_4px_8px_rgba(0,0,0,0.25)]">
                                     Post Tribute
@@ -433,7 +470,7 @@ export default function ObituaryPostsPage() {
                                     Donate
                                 </button>
                             </div>
-                            
+
                             <div className="mt-8">
                                 <div className="flex-shrink min-w-0 max-w-full">
                                     <h3 className="text-xl font-bold text-gray-900 border-b border-gray-200 pb-2 mb-4">Contacts</h3>
@@ -465,13 +502,13 @@ export default function ObituaryPostsPage() {
                                     <p><span className="font-medium">Birth Date:</span> {viewPost.information.dateofBirth ? format(new Date(viewPost.information.dateofBirth), "d/M/yyyy") : 'N/A'}</p>
                                     <p><span className="font-medium">Death Date:</span> {viewPost.information.dateofDeath ? format(new Date(viewPost.information.dateofDeath), "d/M/yyyy") : 'N/A'}</p>
                                     <p><span className="font-medium">Age:</span> {
-                                        viewPost.information.dateofBirth && viewPost.information.dateofDeath 
+                                        viewPost.information.dateofBirth && viewPost.information.dateofDeath
                                             ? Math.floor((new Date(viewPost.information.dateofDeath).getTime() - new Date(viewPost.information.dateofBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25))
                                             : 'N/A'
                                     }</p>
                                     <p><span className="font-medium">Address:</span> {viewPost.information.address || 'N/A'}</p>
                                 </div>
-                                
+
                                 <div className="flex-shrink min-w-0 max-w-full mt-4">
                                     <h3 className="text-xl font-bold text-gray-900 border-b border-gray-200 pb-2 mb-4">Poster's Information</h3>
                                 </div>
@@ -489,11 +526,11 @@ export default function ObituaryPostsPage() {
                                     )}
                                     <p><span className="font-medium">Posted:</span> {formatDate(viewPost.createdAt)}</p>
                                 </div>
-                                
+
                                 <button className="w-full gap-2.5 self-stretch px-4 py-3 my-auto text-white whitespace-nowrap bg-[#0B4157] rounded min-h-6 shadow-[0px_4px_8px_rgba(0,0,0,0.25)]">
                                     Request to Contact
                                 </button>
-                                
+
                                 {(viewPost.additionalImages.length > 0 || viewPost.slideshowImages.length > 0) && (
                                     <>
                                         <div className="flex-shrink min-w-0 max-w-full mt-8 mb-6">

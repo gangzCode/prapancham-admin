@@ -331,7 +331,7 @@ export default function EditPostPage() {
                 setIsLoadingPost(true)
                 const apiUrl = process.env.NEXT_PUBLIC_API_URL
                 const token = localStorage.getItem('token')
-                
+
                 const response = await fetch(`${apiUrl}/order/${postId}`, {
                     headers: {
                         'Content-Type': 'application/json',
@@ -418,7 +418,7 @@ export default function EditPostPage() {
             setIsLoadingPackage(true)
             const apiUrl = process.env.NEXT_PUBLIC_API_URL
             const token = localStorage.getItem('token')
-            
+
             const response = await fetch(`${apiUrl}/obituaryRemembarance-packages/${packageId}`, {
                 headers: {
                     'Content-Type': 'application/json',
@@ -511,7 +511,7 @@ export default function EditPostPage() {
                 setIsLoadingCountries(true)
                 const apiUrl = process.env.NEXT_PUBLIC_API_URL
                 const token = localStorage.getItem('token')
-                
+
                 const response = await fetch(`${apiUrl}/country/all?page=1&limit=10`, {
                     headers: {
                         'Content-Type': 'application/json',
@@ -547,14 +547,13 @@ export default function EditPostPage() {
 
     // Form submission handler
     async function onSubmit(data: PostFormValues) {
-        console.log('Form submitted with data:', data)
-        
+
         try {
             setIsSubmitting(true)
-            
+
             const apiUrl = process.env.NEXT_PUBLIC_API_URL
             const token = localStorage.getItem('token') || localStorage.getItem('accessToken')
-            
+
             if (!token) {
                 toast({
                     title: "Authentication Error",
@@ -566,7 +565,7 @@ export default function EditPostPage() {
 
             // Create FormData object
             const formData = new FormData()
-            
+
             // Add order ID
             formData.append('orderId', postId)
 
@@ -584,14 +583,14 @@ export default function EditPostPage() {
                 formData.append('primaryImage', imageFiles.primaryImage)
             } else if (data.primaryImage && !data.primaryImage.startsWith('data:')) {
                 // Only append URL if it's not a base64 string and not empty
-                formData.append('primaryImage', data.primaryImage)
+                // formData.append('primaryImage', data.primaryImage)
             }
 
             if (imageFiles.thumbnailImage) {
                 formData.append('thumbnailImage', imageFiles.thumbnailImage)
             } else if (data.thumbnailImage && !data.thumbnailImage.startsWith('data:')) {
                 // Only append URL if it's not a base64 string and not empty
-                formData.append('thumbnailImage', data.thumbnailImage)
+                // formData.append('thumbnailImage', data.thumbnailImage)
             }
 
             // Add additional images array - use File objects when available
@@ -601,7 +600,7 @@ export default function EditPostPage() {
                     formData.append(`additionalImages`, imageFiles.additionalImages[index] as File)
                 } else if (imageUrl && !imageUrl.startsWith('data:')) {
                     // Use URL if it's not a base64 string
-                    formData.append(`additionalImages`, imageUrl)
+                    // formData.append(`additionalImages`, imageUrl)
                 }
             })
 
@@ -612,7 +611,7 @@ export default function EditPostPage() {
                     formData.append(`slideshowImages`, imageFiles.slideshowImages[index] as File)
                 } else if (imageUrl && !imageUrl.startsWith('data:')) {
                     // Use URL if it's not a base64 string
-                    formData.append(`slideshowImages`, imageUrl)
+                    // formData.append(`slideshowImages`, imageUrl)
                 }
             })
 
@@ -624,6 +623,29 @@ export default function EditPostPage() {
             // Add selected primary image background frame ID
             if (data.selectedPrimaryImageBgFrame?._id) {
                 formData.append('selectedPrimaryImageBgFrame', data.selectedPrimaryImageBgFrame._id)
+            }
+
+            // Add selected country
+            if (postData && postData.selectedCountry) {
+                formData.append('selectedCountry', postData.selectedCountry)
+            }
+
+            // Add selected package ID
+            if (postData && postData.selectedPackage?._id) {
+                formData.append('selectedPackage', postData.selectedPackage._id)
+            }
+
+            // Add selected addons
+            if (postData && postData.selectedAddons && postData.selectedAddons.length > 0) {
+                formData.append('selectedAddons', JSON.stringify(postData.selectedAddons))
+            }
+
+            // Add order status
+            formData.append('orderStatus', postData?.orderStatus || 'draft')
+
+            // Add username
+            if (postData && postData.username) {
+                formData.append('username', postData.username)
             }
 
             const response = await fetch(`${apiUrl}/order/update`, {
@@ -649,9 +671,8 @@ export default function EditPostPage() {
                 variant: "default",
             })
 
-            // Optionally redirect back to posts list or refresh data
-            // router.push("/obituary/posts")
-            
+            router.push("/obituary/posts")
+
         } catch (error) {
             console.error('Error updating post:', error)
             toast({
@@ -673,7 +694,7 @@ export default function EditPostPage() {
     const addAdditionalImage = () => {
         const currentImages = form.getValues().additionalImages
         form.setValue("additionalImages", [...currentImages, ""])
-        
+
         // Add placeholder for new File
         setImageFiles(prev => ({
             ...prev,
@@ -692,13 +713,13 @@ export default function EditPostPage() {
                 const reader = new FileReader()
                 reader.onload = (event) => {
                     const imageUrl = event.target?.result as string
-                    
+
                     if (type === 'additional') {
                         const currentImages = form.getValues().additionalImages
                         const newImages = [...currentImages]
                         newImages[index] = imageUrl
                         form.setValue("additionalImages", newImages)
-                        
+
                         // Store the File object
                         setImageFiles(prev => {
                             const newFiles = [...prev.additionalImages]
@@ -710,7 +731,7 @@ export default function EditPostPage() {
                         const newImages = [...currentImages]
                         newImages[index] = imageUrl
                         form.setValue("slideshowImages", newImages)
-                        
+
                         // Store the File object
                         setImageFiles(prev => {
                             const newFiles = [...prev.slideshowImages]
@@ -756,7 +777,7 @@ export default function EditPostPage() {
     const removeAdditionalImage = (index: number) => {
         const currentImages = form.getValues().additionalImages
         form.setValue("additionalImages", currentImages.filter((_, i) => i !== index))
-        
+
         // Remove the corresponding File object
         setImageFiles(prev => ({
             ...prev,
@@ -768,7 +789,7 @@ export default function EditPostPage() {
     const addSlideshowImage = () => {
         const currentImages = form.getValues().slideshowImages
         form.setValue("slideshowImages", [...currentImages, ""])
-        
+
         // Add placeholder for new File
         setImageFiles(prev => ({
             ...prev,
@@ -780,7 +801,7 @@ export default function EditPostPage() {
     const removeSlideshowImage = (index: number) => {
         const currentImages = form.getValues().slideshowImages
         form.setValue("slideshowImages", currentImages.filter((_, i) => i !== index))
-        
+
         // Remove the corresponding File object
         setImageFiles(prev => ({
             ...prev,
@@ -1050,10 +1071,10 @@ export default function EditPostPage() {
                                                 <FormItem>
                                                     <FormLabel>Description</FormLabel>
                                                     <FormControl>
-                                                        <Textarea 
-                                                            placeholder="Enter description" 
+                                                        <Textarea
+                                                            placeholder="Enter description"
                                                             className="min-h-[100px]"
-                                                            {...field} 
+                                                            {...field}
                                                         />
                                                     </FormControl>
                                                     <FormMessage />
@@ -1145,7 +1166,7 @@ export default function EditPostPage() {
                                                 Upload and manage primary, thumbnail, and gallery images
                                             </p>
                                         </div>
-                                        
+
                                         {/* Primary Image */}
                                         <div className="space-y-4">
                                             <FormField
@@ -1157,14 +1178,14 @@ export default function EditPostPage() {
                                                         <FormControl>
                                                             <div className="space-y-2">
                                                                 <div className="flex gap-2">
-                                                                    <Input 
-                                                                        placeholder="Enter primary image URL or select file" 
-                                                                        {...field} 
+                                                                    <Input
+                                                                        placeholder="Enter primary image URL or select file"
+                                                                        {...field}
                                                                         className="flex-1"
                                                                     />
-                                                                    <Button 
-                                                                        type="button" 
-                                                                        variant="outline" 
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
                                                                         size="icon"
                                                                         onClick={() => handlePrimaryImageSelect('primary')}
                                                                         title="Select image file"
@@ -1174,9 +1195,9 @@ export default function EditPostPage() {
                                                                 </div>
                                                                 {field.value && (
                                                                     <div className="relative w-32 h-32 border rounded overflow-hidden">
-                                                                        <img 
-                                                                            src={field.value} 
-                                                                            alt="Primary" 
+                                                                        <img
+                                                                            src={field.value}
+                                                                            alt="Primary"
                                                                             className="w-full h-full object-cover"
                                                                         />
                                                                     </div>
@@ -1200,14 +1221,14 @@ export default function EditPostPage() {
                                                         <FormControl>
                                                             <div className="space-y-2">
                                                                 <div className="flex gap-2">
-                                                                    <Input 
-                                                                        placeholder="Enter thumbnail image URL or select file" 
-                                                                        {...field} 
+                                                                    <Input
+                                                                        placeholder="Enter thumbnail image URL or select file"
+                                                                        {...field}
                                                                         className="flex-1"
                                                                     />
-                                                                    <Button 
-                                                                        type="button" 
-                                                                        variant="outline" 
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
                                                                         size="icon"
                                                                         onClick={() => handlePrimaryImageSelect('thumbnail')}
                                                                         title="Select image file"
@@ -1217,9 +1238,9 @@ export default function EditPostPage() {
                                                                 </div>
                                                                 {field.value && (
                                                                     <div className="relative w-32 h-32 border rounded overflow-hidden">
-                                                                        <img 
-                                                                            src={field.value} 
-                                                                            alt="Thumbnail" 
+                                                                        <img
+                                                                            src={field.value}
+                                                                            alt="Thumbnail"
                                                                             className="w-full h-full object-cover"
                                                                         />
                                                                     </div>
@@ -1251,9 +1272,9 @@ export default function EditPostPage() {
                                                                 render={({ field }) => (
                                                                     <FormItem className="flex-1">
                                                                         <FormControl>
-                                                                            <Input 
-                                                                                placeholder="Enter image URL or select file" 
-                                                                                {...field} 
+                                                                            <Input
+                                                                                placeholder="Enter image URL or select file"
+                                                                                {...field}
                                                                             />
                                                                         </FormControl>
                                                                         <FormMessage />
@@ -1280,9 +1301,9 @@ export default function EditPostPage() {
                                                         </div>
                                                         {imageUrl && (
                                                             <div className="relative w-32 h-32 border rounded overflow-hidden">
-                                                                <img 
-                                                                    src={imageUrl} 
-                                                                    alt={`Additional ${index + 1}`} 
+                                                                <img
+                                                                    src={imageUrl}
+                                                                    alt={`Additional ${index + 1}`}
                                                                     className="w-full h-full object-cover"
                                                                 />
                                                             </div>
@@ -1311,9 +1332,9 @@ export default function EditPostPage() {
                                                                 render={({ field }) => (
                                                                     <FormItem className="flex-1">
                                                                         <FormControl>
-                                                                            <Input 
-                                                                                placeholder="Enter image URL or select file" 
-                                                                                {...field} 
+                                                                            <Input
+                                                                                placeholder="Enter image URL or select file"
+                                                                                {...field}
                                                                             />
                                                                         </FormControl>
                                                                         <FormMessage />
@@ -1340,9 +1361,9 @@ export default function EditPostPage() {
                                                         </div>
                                                         {imageUrl && (
                                                             <div className="relative w-32 h-32 border rounded overflow-hidden">
-                                                                <img 
-                                                                    src={imageUrl} 
-                                                                    alt={`Slideshow ${index + 1}`} 
+                                                                <img
+                                                                    src={imageUrl}
+                                                                    alt={`Slideshow ${index + 1}`}
                                                                     className="w-full h-full object-cover"
                                                                 />
                                                             </div>
@@ -1450,8 +1471,8 @@ export default function EditPostPage() {
                                                             <FormItem>
                                                                 <FormLabel>Country</FormLabel>
                                                                 <FormControl>
-                                                                    <Select 
-                                                                        onValueChange={field.onChange} 
+                                                                    <Select
+                                                                        onValueChange={field.onChange}
                                                                         value={field.value}
                                                                         disabled={isLoadingCountries}
                                                                     >
@@ -1463,9 +1484,9 @@ export default function EditPostPage() {
                                                                                 <SelectItem key={country._id} value={country._id}>
                                                                                     <div className="flex items-center gap-2">
                                                                                         {country.image && (
-                                                                                            <img 
-                                                                                                src={country.image} 
-                                                                                                alt={country.name.en[0]?.value || 'Country'} 
+                                                                                            <img
+                                                                                                src={country.image}
+                                                                                                alt={country.name.en[0]?.value || 'Country'}
                                                                                                 className="w-4 h-4 rounded-sm object-cover"
                                                                                             />
                                                                                         )}
@@ -1522,11 +1543,10 @@ export default function EditPostPage() {
                                                     <button
                                                         key={color._id}
                                                         type="button"
-                                                        className={`w-12 h-12 rounded border-2 ${
-                                                            form.watch("selectedBgColor")?._id === color._id
+                                                        className={`w-12 h-12 rounded border-2 ${form.watch("selectedBgColor")?._id === color._id
                                                                 ? "border-primary border-4"
                                                                 : "border-gray-300"
-                                                        }`}
+                                                            }`}
                                                         style={{ backgroundColor: color.colorCode }}
                                                         onClick={() => form.setValue("selectedBgColor", color)}
                                                         title={color.name}
@@ -1559,11 +1579,10 @@ export default function EditPostPage() {
                                                     <button
                                                         key={frame._id}
                                                         type="button"
-                                                        className={`relative aspect-square rounded border-2 overflow-hidden ${
-                                                            form.watch("selectedPrimaryImageBgFrame")?._id === frame._id
+                                                        className={`relative aspect-square rounded border-2 overflow-hidden ${form.watch("selectedPrimaryImageBgFrame")?._id === frame._id
                                                                 ? "border-primary border-4"
                                                                 : "border-gray-300"
-                                                        }`}
+                                                            }`}
                                                         onClick={() => form.setValue("selectedPrimaryImageBgFrame", frame)}
                                                     >
                                                         <img
