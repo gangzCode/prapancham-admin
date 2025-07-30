@@ -140,6 +140,12 @@ export default function ObituaryDonationsPage() {
   const [isUpdatingTributeStatus, setIsUpdatingTributeStatus] = useState(false)
   const [isDeletingTribute, setIsDeletingTribute] = useState(false)
 
+  // Donation given back management state
+  const [selectedOrderForDonationUpdate, setSelectedOrderForDonationUpdate] = useState<any>(null)
+  const [newDonationGivenBackAmount, setNewDonationGivenBackAmount] = useState<string>("")
+  const [donationGivenBackDialogOpen, setDonationGivenBackDialogOpen] = useState(false)
+  const [isUpdatingDonationGivenBack, setIsUpdatingDonationGivenBack] = useState(false)
+
   // Valid donation statuses
   const donationStatusOptions = [
     { label: "Donation Recieved", value: "Donation Recieved" },
@@ -458,6 +464,63 @@ export default function ObituaryDonationsPage() {
     setTributeDeleteDialogOpen(true)
   }
 
+  // Update donation given back amount
+  const updateDonationGivenBack = async () => {
+    if (!selectedOrderForDonationUpdate || !newDonationGivenBackAmount) return
+
+    setIsUpdatingDonationGivenBack(true)
+    try {
+      const token = localStorage.getItem('token')
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/order/${selectedOrderForDonationUpdate._id}/donation-given-back`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            price: parseFloat(newDonationGivenBackAmount)
+          }),
+        }
+      )
+      
+      if (!response.ok) {
+        throw new Error('Failed to update donation given back amount')
+      }
+      
+      toast({
+        title: "Success",
+        description: `Donation given back amount updated to ${newDonationGivenBackAmount} ${selectedOrderForDonationUpdate.donationGivenBack.currencyCode}.`,
+      })
+      
+      // Refresh data
+      await fetchOrders()
+      await fetchDonationsSummary()
+      
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update donation given back amount",
+        variant: "destructive",
+      })
+      console.error("Error updating donation given back amount:", error)
+    } finally {
+      setIsUpdatingDonationGivenBack(false)
+      setDonationGivenBackDialogOpen(false)
+      setSelectedOrderForDonationUpdate(null)
+      setNewDonationGivenBackAmount("")
+    }
+  }
+
+  // Handle donation given back edit
+  const handleEditDonationGivenBack = (order: any) => {
+    setSelectedOrderForDonationUpdate(order)
+    setNewDonationGivenBackAmount(order.donationGivenBack?.price?.toString() || "")
+    setDonationGivenBackDialogOpen(true)
+  }
+
   const columns: ColumnDef<Order>[] = [
     {
       id: "obituary",
@@ -500,7 +563,7 @@ export default function ObituaryDonationsPage() {
       cell: ({ row }) => (
         <div className="text-right">
           <div className="font-medium">
-            {row.original.donationRecieved.price} {row.original.donationRecieved.currencyCode}
+            {row.original.donationRecieved.price || 0} {row.original.donationRecieved.currencyCode}
           </div>
         </div>
       ),
@@ -511,8 +574,19 @@ export default function ObituaryDonationsPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Amount Given Back" type="number" />,
       cell: ({ row }) => (
         <div className="text-right">
-          <div className="font-medium">
-            {row.original.donationGivenBack.price} {row.original.donationGivenBack.currencyCode}
+          <div className="flex items-center justify-end gap-2">
+            <div className="font-medium">
+              {row.original.donationGivenBack.price || 0} {row.original.donationGivenBack.currencyCode}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              onClick={() => handleEditDonationGivenBack(row.original)}
+            >
+              <Edit3 className="h-3 w-3" />
+              <span className="sr-only">Edit donation given back amount</span>
+            </Button>
           </div>
         </div>
       ),
@@ -1090,6 +1164,64 @@ export default function ObituaryDonationsPage() {
         onConfirm={deleteTribute}
         loading={isDeletingTribute}
       />
+
+      {/* Donation Given Back Edit Dialog */}
+      <Dialog open={donationGivenBackDialogOpen} onOpenChange={setDonationGivenBackDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Donation Given Back Amount</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {selectedOrderForDonationUpdate && (
+              <div className="space-y-4">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="font-medium">{selectedOrderForDonationUpdate.information.title}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Current: {selectedOrderForDonationUpdate.donationGivenBack.price} {selectedOrderForDonationUpdate.donationGivenBack.currencyCode}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="donation-amount" className="text-sm font-medium">
+                    New Amount ({selectedOrderForDonationUpdate.donationGivenBack.currencyCode})
+                  </label>
+                  <input
+                    id="donation-amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={newDonationGivenBackAmount}
+                    onChange={(e) => setNewDonationGivenBackAmount(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder="Enter amount"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setDonationGivenBackDialogOpen(false)}
+              disabled={isUpdatingDonationGivenBack}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={updateDonationGivenBack} 
+              disabled={isUpdatingDonationGivenBack || !newDonationGivenBackAmount || parseFloat(newDonationGivenBackAmount) < 0}
+            >
+              {isUpdatingDonationGivenBack ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update Amount"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
