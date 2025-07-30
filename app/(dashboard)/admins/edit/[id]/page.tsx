@@ -1,34 +1,50 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { ArrowLeft, Loader2, Eye, EyeOff, Trash2 } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { Checkbox } from "@/components/ui/checkbox"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 
-// Sample admin data for demonstration
-const getAdminById = async (id: string) => {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 500))
+// Available pages for admin access
+const availablePages = [
+    "Dashboard",
+    "Obituary",
+    "Advertistment",
+    "News",
+    "Events",
+    "Tribute",
+    "ContactUs",
+    "FAQ",
+    "Country",
+    "Newsletter",
+    "Youtube",
+    "Podcast",
+    "Quote"
+]
 
-    return {
-        id,
-        username: "johnsmith",
-        email: "john@prapancham.com",
-        isAdmin: true,
-        isSuperAdmin: id === "1", // Make the first admin a super admin for demo
-        isDeleted: false,
-        phone: "+1 (555) 123-4567",
-        createdAt: "2023-05-15T09:30:45Z",
-        updatedAt: "2023-05-15T09:30:45Z",
-    }
+// Admin type for API response
+type AdminUser = {
+    _id: string
+    username: string
+    email: string
+    password: string
+    isAdmin: boolean
+    isSuperAdmin: boolean
+    isDeleted: boolean
+    phone: string
+    adminAccessPages: string[]
+    createdAt: string
+    updatedAt: string
+    __v: number
 }
 
 // Form validation schema for edit (password is optional)
@@ -48,23 +64,39 @@ const formSchema = z
             .optional()
             .or(z.literal("")),
         confirmPassword: z.string().optional().or(z.literal("")),
-        isAdmin: z.boolean().default(true),
+        isAdmin: z.boolean().default(false),
         isSuperAdmin: z.boolean().default(false),
-        isDeleted: z.boolean().default(false),
         phone: z.string().optional(),
+        adminAccessPages: z.array(z.string()).default([]),
     })
     .refine((data) => !data.password || data.password === data.confirmPassword, {
         message: "Passwords do not match",
         path: ["confirmPassword"],
     })
+    .refine((data) => data.isAdmin || data.isSuperAdmin, {
+        message: "Please select either Admin or Super Admin",
+        path: ["isAdmin"],
+    })
+    .refine((data) => !(data.isAdmin && data.isSuperAdmin), {
+        message: "Cannot select both Admin and Super Admin",
+        path: ["isSuperAdmin"],
+    })
 
 type FormValues = z.infer<typeof formSchema>
 
-export default function EditAdminPage({ params }: { params: { id: string } }) {
+export default function EditAdminPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter()
     const { toast } = useToast()
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
+    const [showPassword, setShowPassword] = useState(false)
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
+    const [adminData, setAdminData] = useState<AdminUser | null>(null)
+
+    // Unwrap the params Promise
+    const { id } = use(params)
 
     // Initialize form with empty values
     const form = useForm<FormValues>({
@@ -74,18 +106,64 @@ export default function EditAdminPage({ params }: { params: { id: string } }) {
             email: "",
             password: "",
             confirmPassword: "",
-            isAdmin: true,
+            isAdmin: false,
             isSuperAdmin: false,
-            isDeleted: false,
             phone: "",
+            adminAccessPages: [],
         },
     })
+
+    // Watch the isAdmin and isSuperAdmin values to handle mutual exclusivity
+    const isAdmin = form.watch("isAdmin")
+    const isSuperAdmin = form.watch("isSuperAdmin")
+
+    // Handle Admin checkbox change
+    const handleAdminChange = (checked: boolean) => {
+        if (checked) {
+            // Ensure mutual exclusivity: only Admin is true
+            form.setValue("isAdmin", true)
+            form.setValue("isSuperAdmin", false)
+        } else {
+            form.setValue("isAdmin", false)
+            form.setValue("adminAccessPages", [])
+        }
+    }
+
+    // Handle Super Admin checkbox change
+    const handleSuperAdminChange = (checked: boolean) => {
+        if (checked) {
+            // Ensure mutual exclusivity: only Super Admin is true
+            form.setValue("isSuperAdmin", true)
+            form.setValue("isAdmin", false)
+            form.setValue("adminAccessPages", [])
+        } else {
+            form.setValue("isSuperAdmin", false)
+        }
+    }
 
     // Fetch admin data and populate form
     useEffect(() => {
         const fetchAdmin = async () => {
             try {
-                const admin = await getAdminById(params.id)
+                // Get token from localStorage
+                const token = localStorage.getItem('token')
+                
+                const response = await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL}/auth/admin-user/${id}`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        },
+                    }
+                )
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch admin data')
+                }
+                
+                const admin: AdminUser = await response.json()
+                setAdminData(admin)
 
                 form.reset({
                     username: admin.username,
@@ -94,8 +172,8 @@ export default function EditAdminPage({ params }: { params: { id: string } }) {
                     confirmPassword: "",
                     isAdmin: admin.isAdmin,
                     isSuperAdmin: admin.isSuperAdmin,
-                    isDeleted: admin.isDeleted,
                     phone: admin.phone || "",
+                    adminAccessPages: admin.adminAccessPages || [],
                 })
             } catch (error) {
                 toast({
@@ -103,24 +181,60 @@ export default function EditAdminPage({ params }: { params: { id: string } }) {
                     description: "Failed to load admin data. Please try again.",
                     variant: "destructive",
                 })
+                console.error("Error fetching admin:", error)
             } finally {
                 setIsLoading(false)
             }
         }
 
         fetchAdmin()
-    }, [params.id, form, toast])
+    }, [id, form, toast])
 
     const onSubmit = async (values: FormValues) => {
         setIsSubmitting(true)
 
         try {
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 1000))
+            // Get token from localStorage
+            const token = localStorage.getItem('token')
+
+            // Prepare the request body (exclude password fields if empty)
+            const requestBody: any = {
+                username: values.username,
+                email: values.email,
+                phone: values.phone || "",
+                isAdmin: values.isAdmin,
+                isSuperAdmin: values.isSuperAdmin,
+                adminAccessPages: values.isSuperAdmin ? [] : values.adminAccessPages
+            }
+
+            // Debug: Log the values being sent
+            console.log("Updating admin with values:", {
+                isAdmin: values.isAdmin,
+                isSuperAdmin: values.isSuperAdmin,
+                adminAccessPages: requestBody.adminAccessPages
+            })
+
+            // Only include password if it's provided
+            if (values.password && values.password.trim() !== "") {
+                requestBody.password = values.password
+            }
+
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody),
+            })
+
+            if (!response.ok) {
+                throw new Error('Failed to update admin')
+            }
 
             // Show success toast
             toast({
-                title: "Admin updated",
+                title: "Admin updated successfully",
                 description: `${values.username}'s information has been updated.`,
             })
 
@@ -132,9 +246,76 @@ export default function EditAdminPage({ params }: { params: { id: string } }) {
                 description: "Failed to update admin. Please try again.",
                 variant: "destructive",
             })
+            console.error("Error updating admin:", error)
         } finally {
             setIsSubmitting(false)
         }
+    }
+
+    // Delete admin function
+    const deleteAdmin = async () => {
+        if (!adminData) return
+
+        // Prevent deletion of Super Admins
+        if (adminData.isSuperAdmin) {
+            toast({
+                title: "Cannot delete Super Admin",
+                description: "Super Admins cannot be deleted for security reasons.",
+                variant: "destructive",
+            })
+            return
+        }
+
+        setIsDeleting(true)
+        try {
+            // Get token from localStorage
+            const token = localStorage.getItem('token')
+
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/admin-user/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            })
+
+            if (!response.ok) {
+                throw new Error('Failed to delete admin')
+            }
+
+            // Show success toast
+            toast({
+                title: "Admin deleted successfully",
+                description: `${adminData.username} has been deleted.`,
+            })
+
+            // Redirect to admins page
+            router.push("/admins")
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to delete admin. Please try again.",
+                variant: "destructive",
+            })
+            console.error("Error deleting admin:", error)
+        } finally {
+            setIsDeleting(false)
+            setDeleteDialogOpen(false)
+        }
+    }
+
+    // Handle delete admin
+    const handleDeleteAdmin = () => {
+        // Prevent deletion of Super Admins
+        if (adminData?.isSuperAdmin) {
+            toast({
+                title: "Cannot delete Super Admin",
+                description: "Super Admins cannot be deleted for security reasons.",
+                variant: "destructive",
+            })
+            return
+        }
+        setDeleteDialogOpen(true)
     }
 
     if (isLoading) {
@@ -198,7 +379,29 @@ export default function EditAdminPage({ params }: { params: { id: string } }) {
                                     <FormItem>
                                         <FormLabel>Password (Optional)</FormLabel>
                                         <FormControl>
-                                            <Input type="password" placeholder="Enter new password" {...field} />
+                                            <div className="relative">
+                                                <Input 
+                                                    type={showPassword ? "text" : "password"} 
+                                                    placeholder="Enter new password" 
+                                                    {...field} 
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                >
+                                                    {showPassword ? (
+                                                        <EyeOff className="h-4 w-4" />
+                                                    ) : (
+                                                        <Eye className="h-4 w-4" />
+                                                    )}
+                                                    <span className="sr-only">
+                                                        {showPassword ? "Hide password" : "Show password"}
+                                                    </span>
+                                                </Button>
+                                            </div>
                                         </FormControl>
                                         <FormDescription>Leave blank to keep current password.</FormDescription>
                                         <FormMessage />
@@ -213,7 +416,29 @@ export default function EditAdminPage({ params }: { params: { id: string } }) {
                                     <FormItem>
                                         <FormLabel>Confirm Password</FormLabel>
                                         <FormControl>
-                                            <Input type="password" placeholder="Confirm new password" {...field} />
+                                            <div className="relative">
+                                                <Input 
+                                                    type={showConfirmPassword ? "text" : "password"} 
+                                                    placeholder="Confirm new password" 
+                                                    {...field} 
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                >
+                                                    {showConfirmPassword ? (
+                                                        <EyeOff className="h-4 w-4" />
+                                                    ) : (
+                                                        <Eye className="h-4 w-4" />
+                                                    )}
+                                                    <span className="sr-only">
+                                                        {showConfirmPassword ? "Hide password" : "Show password"}
+                                                    </span>
+                                                </Button>
+                                            </div>
                                         </FormControl>
                                         <FormDescription>Re-enter the new password to confirm.</FormDescription>
                                         <FormMessage />
@@ -237,68 +462,131 @@ export default function EditAdminPage({ params }: { params: { id: string } }) {
                             )}
                         />
 
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                            <FormField
-                                control={form.control}
-                                name="isAdmin"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                                        <FormControl>
-                                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                                        </FormControl>
-                                        <div className="space-y-1 leading-none">
-                                            <FormLabel>Admin</FormLabel>
-                                            <FormDescription>Grant admin privileges.</FormDescription>
-                                        </div>
-                                    </FormItem>
-                                )}
-                            />
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                                <FormField
+                                    control={form.control}
+                                    name="isAdmin"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                                            <FormControl>
+                                                <Checkbox 
+                                                    checked={field.value} 
+                                                    onCheckedChange={handleAdminChange} 
+                                                />
+                                            </FormControl>
+                                            <div className="space-y-1 leading-none">
+                                                <FormLabel>Admin</FormLabel>
+                                                <FormDescription>Grant admin privileges with specific page access.</FormDescription>
+                                            </div>
+                                        </FormItem>
+                                    )}
+                                />
 
-                            <FormField
-                                control={form.control}
-                                name="isSuperAdmin"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                                        <FormControl>
-                                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                                        </FormControl>
-                                        <div className="space-y-1 leading-none">
-                                            <FormLabel>Super Admin</FormLabel>
-                                            <FormDescription>Grant super admin privileges.</FormDescription>
-                                        </div>
-                                    </FormItem>
-                                )}
-                            />
+                                <FormField
+                                    control={form.control}
+                                    name="isSuperAdmin"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                                            <FormControl>
+                                                <Checkbox 
+                                                    checked={field.value} 
+                                                    onCheckedChange={handleSuperAdminChange} 
+                                                />
+                                            </FormControl>
+                                            <div className="space-y-1 leading-none">
+                                                <FormLabel>Super Admin</FormLabel>
+                                                <FormDescription>Grant super admin privileges with full access to all pages.</FormDescription>
+                                            </div>
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
 
-                            <FormField
-                                control={form.control}
-                                name="isDeleted"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 border-destructive/20">
-                                        <FormControl>
-                                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                                        </FormControl>
-                                        <div className="space-y-1 leading-none">
-                                            <FormLabel>Mark as Deleted</FormLabel>
-                                            <FormDescription>Soft delete this admin account.</FormDescription>
-                                        </div>
-                                    </FormItem>
-                                )}
-                            />
+                            {/* Admin Access Pages Selection - Only show when Admin is selected */}
+                            {isAdmin && !isSuperAdmin && (
+                                <FormField
+                                    control={form.control}
+                                    name="adminAccessPages"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Admin Access Pages</FormLabel>
+                                            <FormDescription>
+                                                Select the pages this admin can access. Super admins have access to all pages by default.
+                                            </FormDescription>
+                                            <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+                                                {availablePages.map((page) => (
+                                                    <FormItem key={page} className="flex flex-row items-start space-x-3 space-y-0">
+                                                        <FormControl>
+                                                            <Checkbox
+                                                                checked={field.value.includes(page)}
+                                                                onCheckedChange={(checked) => {
+                                                                    if (checked) {
+                                                                        field.onChange([...field.value, page])
+                                                                    } else {
+                                                                        field.onChange(
+                                                                            field.value.filter((value) => value !== page)
+                                                                        )
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </FormControl>
+                                                        <FormLabel className="text-sm font-normal">
+                                                            {page}
+                                                        </FormLabel>
+                                                    </FormItem>
+                                                ))}
+                                            </div>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
                         </div>
 
-                        <div className="flex justify-end space-x-4">
-                            <Button type="button" variant="outline" onClick={() => router.push("/admins")}>
-                                Cancel
-                            </Button>
-                            <Button type="submit" disabled={isSubmitting}>
-                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Update Admin
-                            </Button>
+                        <div className="flex justify-between">
+                            {/* Only show delete button for regular admins, not super admins */}
+                            {!isSuperAdmin ? (
+                                <Button 
+                                    type="button" 
+                                    variant="destructive" 
+                                    onClick={handleDeleteAdmin}
+                                    disabled={isSubmitting || isDeleting}
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete Admin
+                                </Button>
+                            ) : (
+                                <div className="flex items-center text-sm text-muted-foreground">
+                                    <span>Super Admins cannot be deleted</span>
+                                </div>
+                            )}
+                            
+                            <div className="flex space-x-4">
+                                <Button type="button" variant="outline" onClick={() => router.push("/admins")}>
+                                    Cancel
+                                </Button>
+                                <Button type="submit" disabled={isSubmitting || isDeleting}>
+                                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Update Admin
+                                </Button>
+                            </div>
                         </div>
                     </form>
                 </Form>
             </div>
+
+            {/* Delete Confirmation Dialog - Only for regular admins */}
+            {!adminData?.isSuperAdmin && (
+                <ConfirmDialog
+                    open={deleteDialogOpen}
+                    onOpenChange={setDeleteDialogOpen}
+                    title="Delete Admin"
+                    description={`Are you sure you want to delete "${adminData?.username}"? This action cannot be undone.`}
+                    onConfirm={deleteAdmin}
+                    loading={isDeleting}
+                />
+            )}
         </div>
     )
 }

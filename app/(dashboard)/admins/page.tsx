@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Plus, Eye, Pencil, Trash2, Shield, ShieldAlert } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Plus, Eye, Pencil, Trash2, Shield, ShieldAlert, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { ColumnDef } from "@tanstack/react-table"
 import { PageHeader } from "@/components/page-header"
@@ -15,83 +15,100 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { DataTableColumnHeader } from "@/components/data-table-column-header"
 import { DataTableFacetedFilter } from "@/components/data-table-faceted-filter"
 
-// Sample data for admin users based on the provided model
+// Types for API response
 type AdminUser = {
-  id: string
+  _id: string
   username: string
   email: string
+  password: string
   isAdmin: boolean
   isSuperAdmin: boolean
   isDeleted: boolean
-  phone?: string
+  phone: string
+  adminAccessPages: string[]
   createdAt: string
   updatedAt: string
+  __v: number
 }
 
-const adminUsers: AdminUser[] = [
-  {
-    id: "1",
-    username: "johnsmith",
-    email: "john@prapancham.com",
-    isAdmin: true,
-    isSuperAdmin: true,
-    isDeleted: false,
-    phone: "+1 (555) 123-4567",
-    createdAt: "2023-05-15T09:30:45Z",
-    updatedAt: "2023-05-15T09:30:45Z",
-  },
-  {
-    id: "2",
-    username: "sarahjohnson",
-    email: "sarah@prapancham.com",
-    isAdmin: true,
-    isSuperAdmin: false,
-    isDeleted: false,
-    phone: "+1 (555) 234-5678",
-    createdAt: "2023-05-14T14:22:10Z",
-    updatedAt: "2023-05-14T14:22:10Z",
-  },
-  {
-    id: "3",
-    username: "michaelbrown",
-    email: "michael@prapancham.com",
-    isAdmin: true,
-    isSuperAdmin: false,
-    isDeleted: false,
-    phone: "+1 (555) 345-6789",
-    createdAt: "2023-05-13T11:15:32Z",
-    updatedAt: "2023-05-13T11:15:32Z",
-  },
-  {
-    id: "4",
-    username: "emilydavis",
-    email: "emily@prapancham.com",
-    isAdmin: true,
-    isSuperAdmin: false,
-    isDeleted: true,
-    phone: "+1 (555) 456-7890",
-    createdAt: "2023-05-12T16:45:20Z",
-    updatedAt: "2023-05-12T16:45:20Z",
-  },
-  {
-    id: "5",
-    username: "robertwilson",
-    email: "robert@prapancham.com",
-    isAdmin: true,
-    isSuperAdmin: true,
-    isDeleted: false,
-    phone: "+1 (555) 567-8901",
-    createdAt: "2023-05-11T08:10:15Z",
-    updatedAt: "2023-05-11T08:10:15Z",
-  },
-]
+type ApiResponse = {
+  adminUsers: AdminUser[]
+  pagination: {
+    currentPage: number
+    totalPages: number
+    totalItems: number
+  }
+}
 
 export default function AdminsPage() {
   const router = useRouter()
   const { toast } = useToast()
+  
+  // State management
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([])
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0
+  })
+  
+  // Dialog states
   const [viewAdmin, setViewAdmin] = useState<AdminUser | null>(null)
   const [deleteAdmin, setDeleteAdmin] = useState<AdminUser | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Fetch admin users from API
+  const fetchAdminUsers = async () => {
+    try {
+      setLoading(true)
+      
+      // Get token from localStorage
+      const token = localStorage.getItem('token')
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/admin-user/all?page=${page}&limit=${pageSize}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch admin users')
+      }
+      
+      const data: ApiResponse = await response.json()
+      setAdminUsers(data.adminUsers)
+      setPagination(data.pagination)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch admin users",
+        variant: "destructive",
+      })
+      console.error("Error fetching admin users:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchAdminUsers()
+  }, [page, pageSize])
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage)
+  }
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize)
+    setPage(1) // Reset to first page when changing page size
+  }
 
   const handleAddAdmin = () => {
     router.push("/admins/new")
@@ -104,18 +121,55 @@ export default function AdminsPage() {
   const handleDeleteAdmin = async () => {
     if (!deleteAdmin) return
 
+    // Prevent deletion of Super Admins
+    if (deleteAdmin.isSuperAdmin) {
+      toast({
+        title: "Cannot delete Super Admin",
+        description: "Super Admins cannot be deleted for security reasons.",
+        variant: "destructive",
+      })
+      setDeleteAdmin(null)
+      return
+    }
+
     setIsDeleting(true)
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    toast({
-      title: "Admin deleted",
-      description: `${deleteAdmin.username} has been removed from admin users.`,
-    })
-
-    setIsDeleting(false)
-    setDeleteAdmin(null)
+    try {
+      const token = localStorage.getItem('token')
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/admin-user/${deleteAdmin._id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete admin user')
+      }
+      
+      toast({
+        title: "Admin deleted",
+        description: `${deleteAdmin.username} has been removed from admin users.`,
+      })
+      
+      // Refresh the data
+      await fetchAdminUsers()
+      
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete admin user",
+        variant: "destructive",
+      })
+      console.error("Error deleting admin user:", error)
+    } finally {
+      setIsDeleting(false)
+      setDeleteAdmin(null)
+    }
   }
 
   // Format date to a more readable format
@@ -211,7 +265,7 @@ export default function AdminsPage() {
             <Eye className="h-4 w-4" />
             <span className="sr-only">View</span>
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleEditAdmin(row.original.id)}>
+          <Button variant="ghost" size="icon" onClick={() => handleEditAdmin(row.original._id)}>
             <Pencil className="h-4 w-4" />
             <span className="sr-only">Edit</span>
           </Button>
@@ -220,8 +274,9 @@ export default function AdminsPage() {
             size="icon"
             onClick={() => setDeleteAdmin(row.original)}
             disabled={row.original.isSuperAdmin}
+            title={row.original.isSuperAdmin ? "Super Admins cannot be deleted" : "Delete admin"}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className={`h-4 w-4 ${row.original.isSuperAdmin ? 'text-muted-foreground' : ''}`} />
             <span className="sr-only">Delete</span>
           </Button>
         </div>
@@ -241,7 +296,25 @@ export default function AdminsPage() {
         }}
       />
 
-      <DataTable columns={columns} data={adminUsers} searchKey="username" searchPlaceholder="Search admins..." />
+      {loading ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading admin users...</span>
+        </div>
+      ) : (
+        <DataTable 
+          columns={columns} 
+          data={adminUsers} 
+          searchKey="username" 
+          searchPlaceholder="Search admins..."
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          pageSize={pageSize}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+        />
+      )}
 
       {/* View Admin Dialog */}
       <ViewDialog open={!!viewAdmin} onOpenChange={(open) => !open && setViewAdmin(null)} title="Admin Details">
@@ -289,6 +362,25 @@ export default function AdminsPage() {
               <p>{viewAdmin.phone || "—"}</p>
             </div>
 
+            <div>
+              <h3 className="font-medium text-sm text-muted-foreground">Access Pages</h3>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {viewAdmin.isSuperAdmin ? (
+                  <Badge variant="default">
+                    All Pages (Super Admin)
+                  </Badge>
+                ) : viewAdmin.adminAccessPages.length > 0 ? (
+                  viewAdmin.adminAccessPages.map((page, index) => (
+                    <Badge key={index} variant="outline">
+                      {page}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground">No access pages assigned</span>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Created At</h3>
@@ -303,15 +395,17 @@ export default function AdminsPage() {
         )}
       </ViewDialog>
 
-      {/* Delete Confirmation Dialog */}
-      <ConfirmDialog
-        open={!!deleteAdmin}
-        onOpenChange={(open) => !open && setDeleteAdmin(null)}
-        title="Delete Admin"
-        description={`Are you sure you want to remove ${deleteAdmin?.username} from admin users? This action cannot be undone.`}
-        onConfirm={handleDeleteAdmin}
-        loading={isDeleting}
-      />
+      {/* Delete Confirmation Dialog - Only for regular admins */}
+      {deleteAdmin && !deleteAdmin.isSuperAdmin && (
+        <ConfirmDialog
+          open={!!deleteAdmin}
+          onOpenChange={(open) => !open && setDeleteAdmin(null)}
+          title="Delete Admin"
+          description={`Are you sure you want to remove ${deleteAdmin?.username} from admin users? This action cannot be undone.`}
+          onConfirm={handleDeleteAdmin}
+          loading={isDeleting}
+        />
+      )}
     </div>
   )
 }
