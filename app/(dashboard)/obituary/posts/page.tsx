@@ -198,37 +198,19 @@ export default function ObituaryPostsPage() {
         setIsUpdatingStatus(true)
 
         const updatedStatusPost = {
-            ...statusPost,
             orderStatus: newStatus,
-        }
-
-        // remove images fields from the updated post
-        const { thumbnailImage, primaryImage, additionalImages, slideshowImages, ...postData } = updatedStatusPost
-
-        // change the name of _id to orderId of postData
-        postData.orderId = postData._id
-        delete (postData as { _id?: string })._id
-
-        // convert postData to FormData
-        const formData = new FormData()
-        for (const key in postData as Record<string, unknown>) {
-            const value = (postData as Record<string, unknown>)[key];
-            if (typeof value === "object" && value !== null) {
-                formData.append(key, JSON.stringify(value));
-            } else if (typeof value !== "undefined") {
-                formData.append(key, String(value));
-            }
         }
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL
         const token = localStorage.getItem('token') || localStorage.getItem('accessToken')
 
-        const response = await fetch(`${apiUrl}/order/update`, {
-            method: 'POST',
+        const response = await fetch(`${apiUrl}/order/${statusPost._id}/status`, {
+            method: 'PUT',
             headers: {
+                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
             },
-            body: formData,
+            body: JSON.stringify(updatedStatusPost),
         })
 
         if (!response.ok) {
@@ -243,6 +225,7 @@ export default function ObituaryPostsPage() {
 
         setIsUpdatingStatus(false)
         setStatusPost(null)
+        fetchObituaryPosts(pagination.currentPage, pageSize)
     }
 
     const formatDate = (dateString: string) => {
