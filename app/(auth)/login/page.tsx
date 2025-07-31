@@ -38,10 +38,10 @@ export default function LoginPage() {
 
       if (response.ok) {
         const data = await response.json();
-        const { _id, username, email, isAdmin, isSuperAdmin, accessToken } = data;
+        const { _id, username, email, isAdmin, isSuperAdmin, accessToken, adminAccessPages } = data;
 
         // Store the required fields in localStorage
-        localStorage.setItem("user", JSON.stringify({ _id, username, email, isAdmin, isSuperAdmin, accessToken }));
+        localStorage.setItem("user", JSON.stringify({ _id, username, email, isAdmin, isSuperAdmin, accessToken, adminAccessPages }));
         localStorage.setItem("token", accessToken);
         toast({
           title: "Login successful",
