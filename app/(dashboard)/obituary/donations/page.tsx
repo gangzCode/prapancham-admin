@@ -366,7 +366,7 @@ export default function ObituaryDonationsPage() {
       const token = localStorage.getItem('token')
       
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/tribute-item/${selectedTribute._id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/order/tribute/${selectedTribute._id}`,
         {
           method: 'PUT',
           headers: {
@@ -415,7 +415,7 @@ export default function ObituaryDonationsPage() {
       const token = localStorage.getItem('token')
       
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/tribute-item/${selectedTribute._id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/order/tribute/${selectedTribute._id}`,
         {
           method: 'DELETE',
           headers: {
