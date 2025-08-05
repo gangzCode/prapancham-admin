@@ -744,6 +744,101 @@ export default function ObituaryDonationsPage() {
           </AccordionContent>
         </AccordionItem>
         
+        <AccordionItem value="messages">
+          <AccordionTrigger>
+            Messages ({order.tributeItems.filter(item => item.tributeOptions === 'message').length})
+          </AccordionTrigger>
+          <AccordionContent>
+            {order.tributeItems.filter(item => item.tributeOptions === 'message').length > 0 ? (
+              <div className="space-y-4">
+                {order.tributeItems
+                  .filter(item => item.tributeOptions === 'message')
+                  .map((tribute, index) => (
+                    <div key={tribute._id} className="border rounded-lg p-4 bg-white shadow-sm">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {/* Sender Information */}
+                          <div>
+                            <h4 className="font-medium text-sm text-muted-foreground mb-2">Sender Information</h4>
+                            <div className="space-y-1">
+                              <p className="font-semibold">{tribute.message.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {tribute.message.relationship}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Country: {tribute.message.country}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Message Content */}
+                          <div>
+                            <h4 className="font-medium text-sm text-muted-foreground mb-2">Message</h4>
+                            <div className="space-y-1">
+                              <p className="text-sm rounded">
+                                {tribute.message.message}
+                              </p>
+                              {tribute.isDeleted && (
+                                <Badge variant="destructive" className="text-xs">
+                                  Deleted
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Status Information */}
+                          <div>
+                            <h4 className="font-medium text-sm text-muted-foreground mb-2">Status</h4>
+                            <div className="space-y-2">
+                              <Badge 
+                                variant={
+                                  tribute.tributeStatus === "Tribute Approved" ? "default" :
+                                  tribute.tributeStatus === "Review Requested" ? "secondary" :
+                                  tribute.tributeStatus === "Approval Denied" ? "destructive" :
+                                  "outline"
+                                }
+                                className="text-xs"
+                              >
+                                {tribute.tributeStatus}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 ml-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleTributeStatusChange(tribute)}
+                            disabled={tribute.isDeleted}
+                          >
+                            <Edit3 className="h-3 w-3 mr-1" />
+                            Edit Status
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteTribute(tribute)}
+                            disabled={tribute.isDeleted}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No tribute messages submitted for this obituary yet.
+              </p>
+            )}
+          </AccordionContent>
+        </AccordionItem>
+        
         <AccordionItem value="cards">
           <AccordionTrigger>
             Cards ({order.tributeItems.filter(item => item.tributeOptions === 'card').length})
