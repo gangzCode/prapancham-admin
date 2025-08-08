@@ -435,6 +435,14 @@ export function AdminSidebar() {
                       </Link>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild isActive={isActive("/tribute/memories")}>
+                        <Link href="/tribute/memories">
+                        <Frame className="mr-2 h-4 w-4" />
+                        {t("memories")}
+                        </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
                 </SidebarMenuSub>
               </CollapsibleContent>
             </Collapsible>
