@@ -1030,20 +1030,248 @@ export default function ObituaryDonationsPage() {
         </AccordionItem>
         
         <AccordionItem value="memories">
-          <AccordionTrigger>Memories</AccordionTrigger>
+          <AccordionTrigger>
+            Memories ({order.tributeItems.filter(item => item.tributeOptions === 'memory').length})
+          </AccordionTrigger>
           <AccordionContent>
-            <p className="text-sm text-muted-foreground">
-              Memories management functionality is still in development.
-            </p>
+            {order.tributeItems.filter(item => item.tributeOptions === 'memory').length > 0 ? (
+              <div className="space-y-4">
+                {order.tributeItems
+                  .filter(item => item.tributeOptions === 'memory')
+                  .map((tribute, index) => (
+                    <div key={tribute._id} className="border rounded-lg p-4 bg-white shadow-sm">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+                          {/* Sender Information */}
+                          <div>
+                            <h4 className="font-medium text-sm text-muted-foreground mb-2">Sender Information</h4>
+                            <div className="space-y-1">
+                              <p className="font-semibold">{tribute.memory.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {tribute.memory.relationship}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Country: {tribute.memory.country}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Email: {tribute.memory.email}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Memory Image */}
+                          <div>
+                            <h4 className="font-medium text-sm text-muted-foreground mb-2">Memory Image</h4>
+                            <div className="space-y-1">
+                              {tribute.memory.images ? (
+                                <div className="relative h-20 w-20 rounded overflow-hidden border">
+                                  <Image
+                                    src={tribute.memory.images}
+                                    alt="Memory"
+                                    fill
+                                    className="object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="h-20 w-20 bg-muted rounded flex items-center justify-center">
+                                  <span className="text-xs text-muted-foreground">No Image</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Memory Message */}
+                          <div>
+                            <h4 className="font-medium text-sm text-muted-foreground mb-2">Message</h4>
+                            <div className="space-y-1">
+                              <p className="text-sm rounded">
+                                {tribute.memory.message}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Price: {tribute.memory.finalPriceInCAD.price} {tribute.memory.finalPriceInCAD.currencyCode}
+                              </p>
+                              {tribute.isDeleted && (
+                                <Badge variant="destructive" className="text-xs">
+                                  Deleted
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Status Information */}
+                          <div>
+                            <h4 className="font-medium text-sm text-muted-foreground mb-2">Status</h4>
+                            <div className="space-y-2">
+                              <Badge 
+                                variant={
+                                  tribute.tributeStatus === "Tribute Approved" ? "default" :
+                                  tribute.tributeStatus === "Review Requested" ? "secondary" :
+                                  tribute.tributeStatus === "Approval Denied" ? "destructive" :
+                                  "outline"
+                                }
+                                className="text-xs"
+                              >
+                                {tribute.tributeStatus}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 ml-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleTributeStatusChange(tribute)}
+                            disabled={tribute.isDeleted}
+                          >
+                            <Edit3 className="h-3 w-3 mr-1" />
+                            Edit Status
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteTribute(tribute)}
+                            disabled={tribute.isDeleted}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No memory tributes submitted for this obituary yet.
+              </p>
+            )}
           </AccordionContent>
         </AccordionItem>
         
         <AccordionItem value="flowers">
-          <AccordionTrigger>Flowers</AccordionTrigger>
+          <AccordionTrigger>
+            Flowers ({order.tributeItems.filter(item => item.tributeOptions === 'flower').length})
+          </AccordionTrigger>
           <AccordionContent>
-            <p className="text-sm text-muted-foreground">
-              Flowers management functionality is still in development.
-            </p>
+            {order.tributeItems.filter(item => item.tributeOptions === 'flower').length > 0 ? (
+              <div className="space-y-4">
+                {order.tributeItems
+                  .filter(item => item.tributeOptions === 'flower')
+                  .map((tribute, index) => (
+                    <div key={tribute._id} className="border rounded-lg p-4 bg-white shadow-sm">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+                          {/* Sender Information */}
+                          <div>
+                            <h4 className="font-medium text-sm text-muted-foreground mb-2">Sender Information</h4>
+                            <div className="space-y-1">
+                              <p className="font-semibold">{tribute.flower.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {tribute.flower.relationship}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Country: {tribute.flower.country}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Email: {tribute.flower.email}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Flower Details */}
+                          <div>
+                            <h4 className="font-medium text-sm text-muted-foreground mb-2">Flower Details</h4>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">
+                                Price: {tribute.flower.finalPriceInCAD.price} {tribute.flower.finalPriceInCAD.currencyCode}
+                              </p>
+                              <Badge 
+                                variant={
+                                  tribute.flower.deliveryStatus === "Delivered" ? "default" :
+                                  tribute.flower.deliveryStatus === "Needs To Be Delivered" ? "secondary" :
+                                  tribute.flower.deliveryStatus === "Cancelled" ? "destructive" :
+                                  "outline"
+                                }
+                                className={`text-xs ${
+                                  tribute.flower.deliveryStatus === "Delivered" ? "bg-green-100 text-green-800 border-green-200" :
+                                  tribute.flower.deliveryStatus === "Needs To Be Delivered" ? "bg-yellow-100 text-yellow-800 border-yellow-200" :
+                                  tribute.flower.deliveryStatus === "Cancelled" ? "bg-red-100 text-red-800 border-red-200" :
+                                  "bg-gray-100 text-gray-800 border-gray-200"
+                                }`}
+                              >
+                                {tribute.flower.deliveryStatus}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          {/* Flower Message */}
+                          <div>
+                            <h4 className="font-medium text-sm text-muted-foreground mb-2">Message</h4>
+                            <div className="space-y-1">
+                              <p className="text-sm rounded">
+                                {tribute.flower.message}
+                              </p>
+                              {tribute.isDeleted && (
+                                <Badge variant="destructive" className="text-xs">
+                                  Deleted
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Status Information */}
+                          <div>
+                            <h4 className="font-medium text-sm text-muted-foreground mb-2">Status</h4>
+                            <div className="space-y-2">
+                              <Badge 
+                                variant={
+                                  tribute.tributeStatus === "Tribute Approved" ? "default" :
+                                  tribute.tributeStatus === "Review Requested" ? "secondary" :
+                                  tribute.tributeStatus === "Approval Denied" ? "destructive" :
+                                  "outline"
+                                }
+                                className="text-xs"
+                              >
+                                {tribute.tributeStatus}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 ml-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleTributeStatusChange(tribute)}
+                            disabled={tribute.isDeleted}
+                          >
+                            <Edit3 className="h-3 w-3 mr-1" />
+                            Edit Status
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteTribute(tribute)}
+                            disabled={tribute.isDeleted}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No flower tributes submitted for this obituary yet.
+              </p>
+            )}
           </AccordionContent>
         </AccordionItem>
       </Accordion>
