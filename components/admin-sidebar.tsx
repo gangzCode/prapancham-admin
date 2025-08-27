@@ -33,6 +33,7 @@ import {
   Grid,
   Youtube,
   Mic,
+  Quote,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -517,6 +518,18 @@ export function AdminSidebar() {
                 <Link href="/podcast">
                   <Mic className="mr-2 h-5 w-5" />
                   <span>Podcasts</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {/* Quotes Menu */}
+          {hasAccess('Quote') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isActive("/quotes")} tooltip="Quotes">
+                <Link href="/quotes">
+                  <Quote className="mr-2 h-5 w-5" />
+                  <span>Quotes</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
