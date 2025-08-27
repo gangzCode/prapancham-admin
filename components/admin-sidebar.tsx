@@ -31,6 +31,7 @@ import {
   IdCard,
   Map,
   Grid,
+  Youtube,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -491,6 +492,18 @@ export function AdminSidebar() {
                 <Link href="/newsletter">
                   <FileUser className="mr-2 h-5 w-5" />
                   <span>{t("newsletter")}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {/* YouTube News Menu */}
+          {hasAccess('Youtube') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isActive("/youtube-news")} tooltip="YouTube News">
+                <Link href="/youtube-news">
+                  <Youtube className="mr-2 h-5 w-5" />
+                  <span>YouTube News</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
