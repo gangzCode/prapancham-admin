@@ -32,6 +32,7 @@ import {
   Map,
   Grid,
   Youtube,
+  Mic,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -504,6 +505,18 @@ export function AdminSidebar() {
                 <Link href="/youtube-news">
                   <Youtube className="mr-2 h-5 w-5" />
                   <span>YouTube News</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {/* Podcast Menu */}
+          {hasAccess('Podcast') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isActive("/podcast")} tooltip="Podcasts">
+                <Link href="/podcast">
+                  <Mic className="mr-2 h-5 w-5" />
+                  <span>Podcasts</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
