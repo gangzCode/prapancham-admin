@@ -563,7 +563,7 @@ export default function ObituaryDonationsPage() {
       cell: ({ row }) => (
         <div className="text-right">
           <div className="font-medium">
-            {row.original.donationRecieved.price || 0} {row.original.donationRecieved.currencyCode}
+            {(row.original.donationRecieved.price || 0).toFixed(2)} {row.original.donationRecieved.currencyCode}
           </div>
         </div>
       ),
