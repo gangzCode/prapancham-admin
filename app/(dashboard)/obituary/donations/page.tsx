@@ -22,7 +22,10 @@ import Image from "next/image"
 type Order = {
   _id: string
   information: {
-    title: string
+    title?: string
+    firstName?: string
+    lastName?: string
+    preferredName?: string
     address: string
     dateofBirth: string
     dateofDeath: string
@@ -107,6 +110,23 @@ type ApiResponse = {
 export default function ObituaryDonationsPage() {
   const { toast } = useToast()
   const { t } = useLanguage()
+  
+  // Helper function to get display title with priority logic
+  const getDisplayTitle = (information: Order['information']) => {
+    // Priority 1: Use title if available
+    if (information.title && information.title.trim()) {
+      return information.title
+    }
+    
+    // Priority 2: Use firstName + lastName if both are available
+    if (information.firstName && information.firstName.trim() && 
+        information.lastName && information.lastName.trim()) {
+      return `${information.firstName} ${information.lastName}`
+    }
+    
+    // Priority 3: Use preferredName as fallback
+    return information.preferredName || 'Unknown'
+  }
   
   // State management
   const [orders, setOrders] = useState<Order[]>([])
@@ -524,20 +544,20 @@ export default function ObituaryDonationsPage() {
   const columns: ColumnDef<Order>[] = [
     {
       id: "obituary",
-      accessorFn: (row) => row.information.title,
+      accessorFn: (row) => getDisplayTitle(row.information),
       header: ({ column }) => <DataTableColumnHeader column={column} title="Obituary" type="text" />,
       cell: ({ row }) => (
         <div className="flex items-center space-x-3">
           <div className="relative h-12 w-12 rounded overflow-hidden">
             <Image
               src={row.original.thumbnailImage || "/placeholder.jpg"}
-              alt={row.original.information.title}
+              alt={getDisplayTitle(row.original.information)}
               fill
               className="object-cover"
             />
           </div>
           <div>
-            <div className="font-medium">{row.original.information.title}</div>
+            <div className="font-medium">{getDisplayTitle(row.original.information)}</div>
             <div className="text-xs text-muted-foreground">
               {new Date(row.original.createdAt).toLocaleDateString()}
             </div>
@@ -1498,7 +1518,7 @@ export default function ObituaryDonationsPage() {
             {selectedOrderForDonationUpdate && (
               <div className="space-y-4">
                 <div className="p-3 bg-muted rounded-lg">
-                  <p className="font-medium">{selectedOrderForDonationUpdate.information.title}</p>
+                  <p className="font-medium">{getDisplayTitle(selectedOrderForDonationUpdate.information)}</p>
                   <p className="text-sm text-muted-foreground">
                     Current: {selectedOrderForDonationUpdate.donationGivenBack.price} {selectedOrderForDonationUpdate.donationGivenBack.currencyCode}
                   </p>
