@@ -21,7 +21,7 @@ const translations: Record<Language, Record<string, string>> = {
     packages: "Packages",
     addons: "Addons",
     users: "Users",
-    donations: "Donations",
+    donations: "Donations & Tributes",
     advertisement: "Advertisement",
     news: "News",
     events: "Events",
