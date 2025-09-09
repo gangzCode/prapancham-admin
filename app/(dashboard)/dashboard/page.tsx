@@ -350,7 +350,7 @@ export default function DashboardPage() {
   const router = useRouter()
 
   const [activeTab, setActiveTab] = useState("day")
-  
+
   // State for users data
   const [recentUsers, setRecentUsers] = useState<User[]>([])
   const [usersPagination, setUsersPagination] = useState({
@@ -387,18 +387,26 @@ export default function DashboardPage() {
   })
   const [isLoadingEvents, setIsLoadingEvents] = useState(false)
 
+  // State for donations data
+  const [donationsData, setDonationsData] = useState({
+    totalDonationReceived: 0,
+    totalDonationGivenBack: 0,
+    netDonation: 0
+  })
+  const [isLoadingDonations, setIsLoadingDonations] = useState(false)
+
   // Fetch recent users from API
   const fetchRecentUsers = async () => {
     setIsLoadingUsers(true)
     try {
       const token = localStorage.getItem('token')
-      
+
       if (!token) {
         console.error('No authentication token found')
         setRecentUsers([])
         return
       }
-      
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/user/active?page=1&limit=10`,
         {
@@ -415,7 +423,7 @@ export default function DashboardPage() {
       }
 
       const data = await response.json()
-      
+
       if (data.user && Array.isArray(data.user)) {
         // Show only the first 5 users for the dashboard
         setRecentUsers(data.user.slice(0, 5))
@@ -435,13 +443,13 @@ export default function DashboardPage() {
     setIsLoadingObituaries(true)
     try {
       const token = localStorage.getItem('token')
-      
+
       if (!token) {
         console.error('No authentication token found')
         setRecentObituaries([])
         return
       }
-      
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/order/all?page=1&limit=10`,
         {
@@ -458,7 +466,7 @@ export default function DashboardPage() {
       }
 
       const data = await response.json()
-      
+
       if (data.orders && Array.isArray(data.orders)) {
         // Show only the first 5 obituaries for the dashboard
         setRecentObituaries(data.orders.slice(0, 5))
@@ -478,13 +486,13 @@ export default function DashboardPage() {
     setIsLoadingAds(true)
     try {
       const token = localStorage.getItem('token')
-      
+
       if (!token) {
         console.error('No authentication token found')
         setRecentAds([])
         return
       }
-      
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/advertistment/active?page=1&limit=10`,
         {
@@ -501,7 +509,7 @@ export default function DashboardPage() {
       }
 
       const data = await response.json()
-      
+
       if (data.advertisements && Array.isArray(data.advertisements)) {
         // Show only the first 5 advertisements for the dashboard
         setRecentAds(data.advertisements.slice(0, 5))
@@ -521,13 +529,13 @@ export default function DashboardPage() {
     setIsLoadingEvents(true)
     try {
       const token = localStorage.getItem('token')
-      
+
       if (!token) {
         console.error('No authentication token found')
         setRecentEvents([])
         return
       }
-      
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/event/all?page=1&limit=10`,
         {
@@ -544,7 +552,7 @@ export default function DashboardPage() {
       }
 
       const data = await response.json()
-      
+
       if (data.events && Array.isArray(data.events)) {
         // Show only the first 5 events for the dashboard
         setRecentEvents(data.events.slice(0, 5))
@@ -559,12 +567,66 @@ export default function DashboardPage() {
     }
   }
 
-  // Fetch users, obituaries, advertisements, and events on component mount
+  // Fetch donations summary from API
+  const fetchDonationsSummary = async () => {
+    setIsLoadingDonations(true)
+    try {
+      const token = localStorage.getItem('token')
+
+      if (!token) {
+        console.error('No authentication token found')
+        setDonationsData({
+          totalDonationReceived: 0,
+          totalDonationGivenBack: 0,
+          netDonation: 0
+        })
+        return
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/order/donation/donations-summary`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch donations summary')
+      }
+
+      const data = await response.json()
+
+      if (data) {
+        setDonationsData({
+          totalDonationReceived: data.totalDonationReceived || 0,
+          totalDonationGivenBack: data.totalDonationGivenBack || 0,
+          netDonation: data.netDonation || 0
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching donations summary:', error)
+      // Set default values on error
+      setDonationsData({
+        totalDonationReceived: 0,
+        totalDonationGivenBack: 0,
+        netDonation: 0
+      })
+    } finally {
+      setIsLoadingDonations(false)
+    }
+  }
+
+  // Fetch users, obituaries, advertisements, events, and donations on component mount
   useEffect(() => {
     fetchRecentUsers()
     fetchRecentObituaries()
     fetchRecentAds()
     fetchRecentEvents()
+    fetchDonationsSummary()
   }, [])
 
   const navigateToRecent = () => {
@@ -602,13 +664,13 @@ export default function DashboardPage() {
         />
         <StatCard
           title="Donations Received"
-          value="$24,680"
+          value={isLoadingDonations ? "Loading..." : `CAD $${donationsData.totalDonationReceived.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={<DollarSign />}
           trend={{ value: 15, isPositive: true }}
         />
         <StatCard
           title="Donations Given Back"
-          value="$18,510"
+          value={isLoadingDonations ? "Loading..." : `CAD $${donationsData.totalDonationGivenBack.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={<DollarSign />}
           trend={{ value: 5, isPositive: false }}
         />
@@ -651,26 +713,44 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Donations Overview</CardTitle>
-            <CardDescription>Breakdown of donations</CardDescription>
+            <CardDescription>Breakdown of donations (CAD)</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={[
-                    { name: "Received", value: 24680 },
-                    { name: "Given Back", value: 18510 },
-                    { name: "Company", value: 6170 },
-                  ]}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [`$${value}`, "Amount"]} />
-                  <Bar dataKey="value" fill="#0B4157" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            {isLoadingDonations ? (
+              <div className="h-[300px] flex items-center justify-center">
+                <div className="space-y-4 w-full">
+                  <div className="flex justify-center">
+                    <Skeleton className="h-6 w-32" />
+                  </div>
+                  <div className="space-y-3">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="flex items-center justify-between">
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-16 w-12" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={[
+                      { name: "Received", value: donationsData.totalDonationReceived },
+                      { name: "Given Back", value: donationsData.totalDonationGivenBack },
+                      { name: "Revenue", value: donationsData.netDonation },
+                    ]}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => [`CAD $${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, "Amount"]} />
+                    <Bar dataKey="value" fill="#0B4157" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
