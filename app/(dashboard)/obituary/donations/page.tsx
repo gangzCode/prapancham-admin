@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronDown, ChevronRight, Edit3, Trash2, Loader2 } from "lucide-react"
+import { ChevronDown, ChevronRight, Edit3, Trash2, Loader2, Truck } from "lucide-react"
 import type { ColumnDef } from "@tanstack/react-table"
 import { PageHeader } from "@/components/page-header"
 import { RowExpandableDataTable } from "@/components/row-expandable-data-table"
@@ -166,6 +166,12 @@ export default function ObituaryDonationsPage() {
   const [donationGivenBackDialogOpen, setDonationGivenBackDialogOpen] = useState(false)
   const [isUpdatingDonationGivenBack, setIsUpdatingDonationGivenBack] = useState(false)
 
+  // Flower delivery status management state
+  const [selectedFlowerTribute, setSelectedFlowerTribute] = useState<any>(null)
+  const [newDeliveryStatus, setNewDeliveryStatus] = useState<string>("")
+  const [deliveryStatusDialogOpen, setDeliveryStatusDialogOpen] = useState(false)
+  const [isUpdatingDeliveryStatus, setIsUpdatingDeliveryStatus] = useState(false)
+
   // Valid donation statuses
   const donationStatusOptions = [
     { label: "Donation Recieved", value: "Donation Recieved" },
@@ -178,6 +184,14 @@ export default function ObituaryDonationsPage() {
     { label: "Tribute Approved", value: "Tribute Approved" },
     { label: "Approval Denied", value: "Approval Denied" },
     { label: "Expired", value: "Expired" },
+  ]
+
+  // Valid delivery statuses for flowers
+  const deliveryStatusOptions = [
+    { label: "Payment Needs To Be Done", value: "Payment Needs To Be Done" },
+    { label: "Needs To Be Delivered", value: "Needs To Be Delivered" },
+    { label: "Delivered", value: "Delivered" },
+    { label: "Cancelled", value: "Cancelled" },
   ]
 
   // Order status options
@@ -482,6 +496,62 @@ export default function ObituaryDonationsPage() {
   const handleDeleteTribute = (tribute: any) => {
     setSelectedTribute(tribute)
     setTributeDeleteDialogOpen(true)
+  }
+
+  // Update flower delivery status
+  const updateFlowerDeliveryStatus = async () => {
+    if (!selectedFlowerTribute || !newDeliveryStatus) return
+
+    setIsUpdatingDeliveryStatus(true)
+    try {
+      const token = localStorage.getItem('token')
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/order/tribute/${selectedFlowerTribute._id}/flower-delivery-status`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            deliveryStatus: newDeliveryStatus
+          }),
+        }
+      )
+      
+      if (!response.ok) {
+        throw new Error('Failed to update flower delivery status')
+      }
+      
+      toast({
+        title: "Success",
+        description: `Flower delivery status updated to "${newDeliveryStatus}".`,
+      })
+      
+      // Refresh data
+      await fetchOrders()
+      
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update flower delivery status",
+        variant: "destructive",
+      })
+      console.error("Error updating flower delivery status:", error)
+    } finally {
+      setIsUpdatingDeliveryStatus(false)
+      setDeliveryStatusDialogOpen(false)
+      setSelectedFlowerTribute(null)
+      setNewDeliveryStatus("")
+    }
+  }
+
+  // Handle flower delivery status change
+  const handleFlowerDeliveryStatusChange = (flowerTribute: any) => {
+    setSelectedFlowerTribute(flowerTribute)
+    setNewDeliveryStatus(flowerTribute.flower?.deliveryStatus || "")
+    setDeliveryStatusDialogOpen(true)
   }
 
   // Update donation given back amount
@@ -1210,6 +1280,7 @@ export default function ObituaryDonationsPage() {
                               </p>
                               <Badge 
                                 variant={
+                                  tribute.flower.deliveryStatus === "Payment Needs To Be Done" ? "destructive" :
                                   tribute.flower.deliveryStatus === "Delivered" ? "default" :
                                   tribute.flower.deliveryStatus === "Needs To Be Delivered" ? "secondary" :
                                   tribute.flower.deliveryStatus === "Cancelled" ? "destructive" :
@@ -1219,6 +1290,7 @@ export default function ObituaryDonationsPage() {
                                   tribute.flower.deliveryStatus === "Delivered" ? "bg-green-100 text-green-800 border-green-200" :
                                   tribute.flower.deliveryStatus === "Needs To Be Delivered" ? "bg-yellow-100 text-yellow-800 border-yellow-200" :
                                   tribute.flower.deliveryStatus === "Cancelled" ? "bg-red-100 text-red-800 border-red-200" :
+                                  tribute.flower.deliveryStatus === "Payment Needs To Be Done" ? "bg-red-100 text-red-800 border-red-200" :
                                   "bg-gray-100 text-gray-800 border-gray-200"
                                 }`}
                               >
@@ -1263,6 +1335,16 @@ export default function ObituaryDonationsPage() {
 
                         {/* Action Buttons */}
                         <div className="flex items-center gap-2 ml-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleFlowerDeliveryStatusChange(tribute)}
+                            disabled={tribute.isDeleted}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <Truck className="h-3 w-3 mr-1" />
+                            Delivery Status
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -1560,6 +1642,66 @@ export default function ObituaryDonationsPage() {
                 </>
               ) : (
                 "Update Amount"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Flower Delivery Status Dialog */}
+      <Dialog open={deliveryStatusDialogOpen} onOpenChange={setDeliveryStatusDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Update Flower Delivery Status</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {selectedFlowerTribute && (
+              <div className="space-y-4">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="font-medium">{selectedFlowerTribute.flower?.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Flower Tribute • Current Status: {selectedFlowerTribute.flower?.deliveryStatus}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="delivery-status" className="text-sm font-medium">
+                    New Delivery Status
+                  </label>
+                  <Select value={newDeliveryStatus} onValueChange={setNewDeliveryStatus}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select delivery status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {deliveryStatusOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setDeliveryStatusDialogOpen(false)}
+              disabled={isUpdatingDeliveryStatus}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={updateFlowerDeliveryStatus} 
+              disabled={isUpdatingDeliveryStatus || !newDeliveryStatus}
+            >
+              {isUpdatingDeliveryStatus ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update Status"
               )}
             </Button>
           </DialogFooter>
