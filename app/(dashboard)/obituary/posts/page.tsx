@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Eye, Pencil, Trash2, Calendar, Loader2 } from "lucide-react"
+import { Plus, Eye, Pencil, Trash2, Calendar as CalendarIcon, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { ColumnDef } from "@tanstack/react-table"
 import { PageHeader } from "@/components/page-header"
@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { DataTableColumnHeader } from "@/components/data-table-column-header"
 import { DataTableFacetedFilter } from "@/components/data-table-faceted-filter"
 
@@ -26,7 +27,10 @@ type ObituaryPost = {
     orderId?: string
     username: string
     information: {
-        title: string
+        title?: string
+        firstName?: string
+        lastName?: string
+        preferredName?: string
         address: string
         dateofBirth: string
         dateofDeath: string
@@ -78,6 +82,24 @@ export default function ObituaryPostsPage() {
     const router = useRouter()
     const { toast } = useToast()
     const { t } = useLanguage()
+    
+    // Helper function to get display title with priority logic
+    const getDisplayTitle = (information: ObituaryPost['information']) => {
+        // Priority 1: Use title if available
+        if (information.title && information.title.trim()) {
+            return information.title
+        }
+        
+        // Priority 2: Use firstName + lastName if both are available
+        if (information.firstName && information.firstName.trim() && 
+            information.lastName && information.lastName.trim()) {
+            return `${information.firstName} ${information.lastName}`
+        }
+        
+        // Priority 3: Use preferredName as fallback
+        return information.preferredName || 'Unknown'
+    }
+    
     const [viewPost, setViewPost] = useState<ObituaryPost | null>(null)
     const [deletePost, setDeletePost] = useState<ObituaryPost | null>(null)
     const [statusPost, setStatusPost] = useState<ObituaryPost | null>(null)
@@ -93,6 +115,11 @@ export default function ObituaryPostsPage() {
     })
 
     const [pageSize, setPageSize] = useState(10)
+
+    // Date editing state
+    const [expiryDatePost, setExpiryDatePost] = useState<ObituaryPost | null>(null)
+    const [newExpiryDate, setNewExpiryDate] = useState<string>("")
+    const [isUpdatingExpiryDate, setIsUpdatingExpiryDate] = useState(false)
 
     // Fetch obituary posts from API
     const fetchObituaryPosts = async (page: number = 1, limit: number = 10) => {
@@ -170,7 +197,7 @@ export default function ObituaryPostsPage() {
             }
             toast({
                 title: "Obituary post deleted",
-                description: `"${deletePost.information.title}" has been deleted successfully.`,
+                description: `"${getDisplayTitle(deletePost.information)}" has been deleted successfully.`,
             })
             // Refresh the list
             fetchObituaryPosts(pagination.currentPage, pageSize)
@@ -220,12 +247,73 @@ export default function ObituaryPostsPage() {
 
         toast({
             title: "Status updated",
-            description: `The status for "${statusPost.information.title}" has been updated to "${newStatus}".`,
+            description: `The status for "${getDisplayTitle(statusPost.information)}" has been updated to "${newStatus}".`,
         })
 
         setIsUpdatingStatus(false)
         setStatusPost(null)
         fetchObituaryPosts(pagination.currentPage, pageSize)
+    }
+
+    const handleExpiryDateUpdate = async () => {
+        if (!expiryDatePost || !newExpiryDate) return
+
+        setIsUpdatingExpiryDate(true)
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL
+            const token = localStorage.getItem('token') || localStorage.getItem('accessToken')
+
+            const response = await fetch(`${apiUrl}/order/${expiryDatePost._id}/expiry-date`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    expiryDate: newExpiryDate
+                }),
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.message || 'Failed to update expiry date')
+            }
+
+            toast({
+                title: "Expiry date updated",
+                description: `The expiry date for "${getDisplayTitle(expiryDatePost.information)}" has been updated to ${format(new Date(newExpiryDate), "PPP")}.`,
+            })
+
+            // Refresh the list
+            fetchObituaryPosts(pagination.currentPage, pageSize)
+            
+        } catch (error) {
+            console.error('Error updating expiry date:', error)
+            toast({
+                title: "Error",
+                description: "Failed to update expiry date. Please try again.",
+                variant: "destructive",
+            })
+        } finally {
+            setIsUpdatingExpiryDate(false)
+            setExpiryDatePost(null)
+            setNewExpiryDate("")
+        }
+    }
+
+    const handleEditExpiryDate = (post: ObituaryPost) => {
+        setExpiryDatePost(post)
+        
+        // Set current expiry date as default
+        let currentDate: Date
+        if (!post.expiryDate) {
+            const createdDate = new Date(post.createdAt)
+            const duration = post.selectedPackage?.duration || 30
+            currentDate = new Date(createdDate.getTime() + (duration * 24 * 60 * 60 * 1000))
+        } else {
+            currentDate = new Date(post.expiryDate)
+        }
+        setNewExpiryDate(format(currentDate, "yyyy-MM-dd"))
     }
 
     const formatDate = (dateString: string) => {
@@ -263,15 +351,15 @@ export default function ObituaryPostsPage() {
     const columns: ColumnDef<ObituaryPost>[] = [
         {
             id: "title",
-            accessorFn: (row) => row.information.title,
+            accessorFn: (row) => getDisplayTitle(row.information),
             header: ({ column }) => <DataTableColumnHeader column={column} title="Name" type="text" />,
             cell: ({ row }) => (
                 <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
-                        <AvatarImage src={row.original.thumbnailImage || row.original.primaryImage || "/placeholder.svg"} alt={row.original.information.title} />
-                        <AvatarFallback>{row.original.information.title.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={row.original.thumbnailImage || row.original.primaryImage || "/placeholder.svg"} alt={getDisplayTitle(row.original.information)} />
+                        <AvatarFallback>{getDisplayTitle(row.original.information).charAt(0)}</AvatarFallback>
                     </Avatar>
-                    <div className="font-medium">{row.original.information.title}</div>
+                    <div className="font-medium">{getDisplayTitle(row.original.information)}</div>
                 </div>
             ),
         },
@@ -305,14 +393,27 @@ export default function ObituaryPostsPage() {
             },
             header: ({ column }) => <DataTableColumnHeader column={column} title="Expiry Date" type="date" />,
             cell: ({ row }) => {
+                let currentDate: Date
+                
                 if (!row.original.expiryDate) {
                     // Calculate expiry date from creation date + package duration
                     const createdDate = new Date(row.original.createdAt)
                     const duration = row.original.selectedPackage?.duration || 30
-                    const expiryDate = new Date(createdDate.getTime() + (duration * 24 * 60 * 60 * 1000))
-                    return <div>{formatDate(expiryDate.toISOString())}</div>
+                    currentDate = new Date(createdDate.getTime() + (duration * 24 * 60 * 60 * 1000))
+                } else {
+                    currentDate = new Date(row.original.expiryDate)
                 }
-                return <div>{formatDate(row.original.expiryDate)}</div>
+
+                return (
+                    <Button
+                        variant="ghost"
+                        className="h-auto p-2 font-normal justify-start text-left"
+                        onClick={() => handleEditExpiryDate(row.original)}
+                    >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formatDate(currentDate.toISOString())}
+                    </Button>
+                )
             },
         },
         {
@@ -400,7 +501,7 @@ export default function ObituaryPostsPage() {
             <ViewDialog
                 open={!!viewPost}
                 onOpenChange={(open) => !open && setViewPost(null)}
-                title={viewPost?.information.title || "Obituary Details"}
+                title={viewPost ? getDisplayTitle(viewPost.information) : "Obituary Details"}
                 className="max-w-6xl w-[90vw]"
             >
                 {viewPost && (
@@ -423,7 +524,7 @@ export default function ObituaryPostsPage() {
                                             </div>
 
                                             <img
-                                                alt={`Portrait of ${viewPost.information.title}`}
+                                                alt={`Portrait of ${getDisplayTitle(viewPost.information)}`}
                                                 className="w-40 sm:w-60 shadow-md aspect-square object-cover mx-auto sm:mx-4"
                                                 src={viewPost.primaryImage || "/placeholder.svg"}
                                             />
@@ -435,7 +536,7 @@ export default function ObituaryPostsPage() {
                                         </div>
 
                                         <p className="text-white font-medium">
-                                            {viewPost.information.title}
+                                            {getDisplayTitle(viewPost.information)}
                                         </p>
                                     </div>
                                 </div>
@@ -481,7 +582,7 @@ export default function ObituaryPostsPage() {
                                     <h3 className="text-xl font-bold text-gray-900 border-b border-gray-200 pb-2 mb-4">Overview</h3>
                                 </div>
                                 <div className="space-y-2 mt-2 p-2">
-                                    <p><span className="font-medium">Name:</span> {viewPost.information.title}</p>
+                                    <p><span className="font-medium">Name:</span> {getDisplayTitle(viewPost.information)}</p>
                                     <p><span className="font-medium">Birth Date:</span> {viewPost.information.dateofBirth ? format(new Date(viewPost.information.dateofBirth), "d/M/yyyy") : 'N/A'}</p>
                                     <p><span className="font-medium">Death Date:</span> {viewPost.information.dateofDeath ? format(new Date(viewPost.information.dateofDeath), "d/M/yyyy") : 'N/A'}</p>
                                     <p><span className="font-medium">Age:</span> {
@@ -559,7 +660,7 @@ export default function ObituaryPostsPage() {
                 open={!!deletePost}
                 onOpenChange={(open) => !open && setDeletePost(null)}
                 title="Delete Obituary Post"
-                description={`Are you sure you want to delete the obituary post for "${deletePost?.information.title}"? This action cannot be undone.`}
+                description={`Are you sure you want to delete the obituary post for "${deletePost ? getDisplayTitle(deletePost.information) : ''}"? This action cannot be undone.`}
                 onConfirm={handleDeletePost}
                 loading={isDeleting}
             />
@@ -572,7 +673,7 @@ export default function ObituaryPostsPage() {
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="status">Status for {statusPost?.information.title}</Label>
+                            <Label htmlFor="status">Status for {statusPost ? getDisplayTitle(statusPost.information) : ''}</Label>
                             <Select value={newStatus} onValueChange={setNewStatus}>
                                 <SelectTrigger id="status">
                                     <SelectValue placeholder="Select status" />
@@ -594,6 +695,64 @@ export default function ObituaryPostsPage() {
                         </Button>
                         <Button onClick={handleStatusChange} disabled={isUpdatingStatus}>
                             {isUpdatingStatus ? "Updating..." : "Save changes"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Expiry Date Change Dialog */}
+            <Dialog open={!!expiryDatePost} onOpenChange={(open) => !open && setExpiryDatePost(null)}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Update Expiry Date</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        {expiryDatePost && (
+                            <div className="space-y-4">
+                                <div className="p-3 bg-muted rounded-lg">
+                                    <p className="font-medium">{getDisplayTitle(expiryDatePost.information)}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Current expiry: {(() => {
+                                            if (!expiryDatePost.expiryDate) {
+                                                const createdDate = new Date(expiryDatePost.createdAt)
+                                                const duration = expiryDatePost.selectedPackage?.duration || 30
+                                                const currentDate = new Date(createdDate.getTime() + (duration * 24 * 60 * 60 * 1000))
+                                                return formatDate(currentDate.toISOString())
+                                            }
+                                            return formatDate(expiryDatePost.expiryDate)
+                                        })()}
+                                    </p>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="expiry-date">New Expiry Date</Label>
+                                    <Input
+                                        id="expiry-date"
+                                        type="date"
+                                        value={newExpiryDate}
+                                        onChange={(e) => setNewExpiryDate(e.target.value)}
+                                        min={format(new Date(), "yyyy-MM-dd")}
+                                        className="w-full"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setExpiryDatePost(null)} disabled={isUpdatingExpiryDate}>
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={handleExpiryDateUpdate} 
+                            disabled={isUpdatingExpiryDate || !newExpiryDate}
+                        >
+                            {isUpdatingExpiryDate ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Updating...
+                                </>
+                            ) : (
+                                "Update Expiry Date"
+                            )}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
