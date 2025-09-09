@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ArrowRight, DollarSign, FileText, Plus } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import { StatCard } from "@/components/stat-card"
@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { DataTable } from "@/components/data-table"
+import { Skeleton } from "@/components/ui/skeleton"
 import type { ColumnDef } from "@tanstack/react-table"
 import { useRouter } from "next/navigation"
 
@@ -29,216 +30,174 @@ const chartData = [
 
 // Sample data for recent users
 type User = {
-  id: string
-  name: string
+  _id: string
+  username: string
   email: string
-  joinedDate: string
-  status: "active" | "inactive"
+  password: string
+  isDeleted: boolean
+  image: string
+  isActive: boolean
+  orders: string[]
+  createdAt: string
+  updatedAt: string
+  __v: number
+  address?: string
+  country?: string
+  phone?: string
 }
 
-const recentUsers: User[] = [
-  {
-    id: "1",
-    name: "John Doe",
-    email: "john@example.com",
-    joinedDate: "2023-05-15",
-    status: "active",
-  },
-  {
-    id: "2",
-    name: "Jane Smith",
-    email: "jane@example.com",
-    joinedDate: "2023-05-14",
-    status: "active",
-  },
-  {
-    id: "3",
-    name: "Robert Johnson",
-    email: "robert@example.com",
-    joinedDate: "2023-05-13",
-    status: "inactive",
-  },
-  {
-    id: "4",
-    name: "Emily Davis",
-    email: "emily@example.com",
-    joinedDate: "2023-05-12",
-    status: "active",
-  },
-  {
-    id: "5",
-    name: "Michael Wilson",
-    email: "michael@example.com",
-    joinedDate: "2023-05-11",
-    status: "active",
-  },
-  {
-    id: "6",
-    name: "rgs Davis",
-    email: "emily@example.com",
-    joinedDate: "2023-05-12",
-    status: "active",
-  },
-  {
-    id: "7",
-    name: "Michfvgael Wilson",
-    email: "michael@example.com",
-    joinedDate: "2023-05-11",
-    status: "active",
-  },
-]
 
-// Sample data for recent obituaries
+
+// API data types for obituaries
 type Obituary = {
-  id: string
-  name: string
-  date: string
-  package: string
-  donations: number
+  _id: string
+  information: {
+    firstName: string
+    lastName: string
+    preferredName?: string
+    address: string
+    dateofBirth: string
+    dateofDeath: string
+    description: string
+    tributeVideo?: string
+    shortDescription: string
+  }
+  basePackagePrice: {
+    country: string
+    price: number
+  }
+  finalPrice: {
+    country: {
+      _id: string
+      currencyCode: string
+    }
+    price: number
+  }
+  finalPriceInCAD: {
+    price: number
+    currencyCode: string
+  }
+  createdAt: string
+  expiryDate: string
+  isDeleted: boolean
+  isDonationReceivable: boolean
+  orderStatus: string
+  primaryImage?: string
+  selectedPackage: {
+    name: {
+      en: Array<{ name: string; value: string }>
+    }
+  }
+  username: string
+  updatedAt: string
 }
 
-const recentObituaries: Obituary[] = [
-  {
-    id: "1",
-    name: "James Wilson",
-    date: "2023-05-15",
-    package: "Premium",
-    donations: 1250,
-  },
-  {
-    id: "2",
-    name: "Mary Johnson",
-    date: "2023-05-14",
-    package: "Standard",
-    donations: 850,
-  },
-  {
-    id: "3",
-    name: "David Brown",
-    date: "2023-05-13",
-    package: "Premium",
-    donations: 1500,
-  },
-  {
-    id: "4",
-    name: "Sarah Miller",
-    date: "2023-05-12",
-    package: "Basic",
-    donations: 450,
-  },
-  {
-    id: "5",
-    name: "Thomas Davis",
-    date: "2023-05-11",
-    package: "Standard",
-    donations: 750,
-  },
-]
 
-// Sample data for recent ads
+
+// API data types for advertisements
 type Ad = {
-  id: string
-  title: string
-  placement: string
-  startDate: string
-  endDate: string
-  status: "active" | "inactive" | "expired"
+  _id: string
+  image: string
+  isDeleted: boolean
+  adPageName: string
+  isActive: boolean
+  expiryDate: string
+  uploadedDate: string
+  __v: number
+  adCategory: {
+    name: {
+      en: Array<{
+        name: string
+        value: string
+        _id: string
+      }>
+      ta: Array<{
+        name: string
+        value: string
+        _id: string
+      }>
+      si: Array<{
+        name: string
+        value: string
+        _id: string
+      }>
+    }
+    _id: string
+    isDeleted: boolean
+    isActive: boolean
+    __v: number
+  }
+  adType: {
+    _id: string
+    imageSize: string
+    isDeleted: boolean
+    type: string
+    isActive: boolean
+    __v: number
+  }
+  link: string
 }
 
-const recentAds: Ad[] = [
-  {
-    id: "1",
-    title: "Local Business Promotion",
-    placement: "Homepage Banner",
-    startDate: "2023-05-01",
-    endDate: "2023-05-31",
-    status: "active",
-  },
-  {
-    id: "2",
-    title: "Community Event",
-    placement: "Sidebar",
-    startDate: "2023-05-10",
-    endDate: "2023-05-20",
-    status: "active",
-  },
-  {
-    id: "3",
-    title: "Restaurant Opening",
-    placement: "Article Footer",
-    startDate: "2023-04-15",
-    endDate: "2023-05-15",
-    status: "expired",
-  },
-  {
-    id: "4",
-    title: "Charity Fundraiser",
-    placement: "Homepage Banner",
-    startDate: "2023-05-20",
-    endDate: "2023-06-20",
-    status: "inactive",
-  },
-  {
-    id: "5",
-    title: "Local Festival",
-    placement: "Sidebar",
-    startDate: "2023-06-01",
-    endDate: "2023-06-15",
-    status: "inactive",
-  },
-]
 
-// Sample data for recent events
+
+// API data types for events
 type Event = {
-  id: string
-  title: string
-  date: string
-  location: string
-  attendees: number
+  _id: string
+  name: {
+    en: Array<{
+      name: string
+      value: string
+      _id: string
+    }>
+    ta: Array<{
+      name: string
+      value: string
+      _id: string
+    }>
+    si: Array<{
+      name: string
+      value: string
+      _id: string
+    }>
+  }
+  description: {
+    en: Array<{
+      name: string
+      value: string
+      _id: string
+    }>
+    ta: Array<{
+      name: string
+      value: string
+      _id: string
+    }>
+    si: Array<{
+      name: string
+      value: string
+      _id: string
+    }>
+  }
+  eventDate: string
+  isFeatured: boolean
+  image: string
+  featuredEventImage: string
+  isDeleted: boolean
+  expiryDate: string
+  isActive: boolean
+  uploadedDate: string
+  createdAt: string
+  updatedAt: string
+  __v: number
+  eventLink?: string
+  registeredPeopleCount?: string
 }
 
-const recentEvents: Event[] = [
-  {
-    id: "1",
-    title: "Community Gathering",
-    date: "2023-05-20",
-    location: "Community Center",
-    attendees: 120,
-  },
-  {
-    id: "2",
-    title: "Memorial Service",
-    date: "2023-05-18",
-    location: "Memorial Park",
-    attendees: 85,
-  },
-  {
-    id: "3",
-    title: "Charity Fundraiser",
-    date: "2023-05-25",
-    location: "City Hall",
-    attendees: 150,
-  },
-  {
-    id: "4",
-    title: "Cultural Festival",
-    date: "2023-06-01",
-    location: "Downtown Plaza",
-    attendees: 300,
-  },
-  {
-    id: "5",
-    title: "Remembrance Day",
-    date: "2023-05-30",
-    location: "Veterans Park",
-    attendees: 200,
-  },
-]
+
 
 // Column definitions for tables
 const userColumns: ColumnDef<User>[] = [
   {
-    accessorKey: "name",
+    accessorKey: "username",
     header: "Name",
   },
   {
@@ -246,15 +205,19 @@ const userColumns: ColumnDef<User>[] = [
     header: "Email",
   },
   {
-    accessorKey: "joinedDate",
+    accessorKey: "createdAt",
     header: "Joined Date",
+    cell: ({ row }) => {
+      const date = new Date(row.original.createdAt)
+      return date.toLocaleDateString()
+    },
   },
   {
-    accessorKey: "status",
+    accessorKey: "isActive",
     header: "Status",
     cell: ({ row }) => (
-      <div className={`capitalize ${row.original.status === "active" ? "text-green-600" : "text-red-600"}`}>
-        {row.original.status}
+      <div className={`capitalize ${row.original.isActive ? "text-green-600" : "text-red-600"}`}>
+        {row.original.isActive ? "active" : "inactive"}
       </div>
     ),
   },
@@ -262,81 +225,124 @@ const userColumns: ColumnDef<User>[] = [
 
 const obituaryColumns: ColumnDef<Obituary>[] = [
   {
-    accessorKey: "name",
+    accessorKey: "information.firstName",
     header: "Name",
+    cell: ({ row }) => (
+      <div>
+        {row.original.information.firstName} {row.original.information.lastName}
+      </div>
+    ),
   },
   {
-    accessorKey: "date",
-    header: "Date",
+    accessorKey: "createdAt",
+    header: "Created Date",
+    cell: ({ row }) => {
+      const date = new Date(row.original.createdAt)
+      return date.toLocaleDateString()
+    },
   },
   {
-    accessorKey: "package",
+    accessorKey: "selectedPackage.name.en",
     header: "Package",
+    cell: ({ row }) => (
+      <div>
+        {row.original.selectedPackage?.name?.en?.[0]?.value || "N/A"}
+      </div>
+    ),
   },
   {
-    accessorKey: "donations",
-    header: "Donations",
-    cell: ({ row }) => <div>${row.original.donations.toLocaleString()}</div>,
+    accessorKey: "finalPriceInCAD.price",
+    header: "Price",
+    cell: ({ row }) => (
+      <div>
+        {row.original.finalPriceInCAD.currencyCode} ${row.original.finalPriceInCAD.price.toFixed(2)}
+      </div>
+    ),
   },
 ]
 
 const adColumns: ColumnDef<Ad>[] = [
   {
-    accessorKey: "title",
-    header: "Title",
+    accessorKey: "adCategory.name.en",
+    header: "Category",
+    cell: ({ row }) => (
+      <div>
+        {row.original.adCategory?.name?.en?.[0]?.value || "N/A"}
+      </div>
+    ),
   },
   {
-    accessorKey: "placement",
-    header: "Placement",
+    accessorKey: "adType.type",
+    header: "Type",
+    cell: ({ row }) => (
+      <div>
+        {row.original.adType?.type || "N/A"}
+      </div>
+    ),
   },
   {
-    accessorKey: "startDate",
-    header: "Start Date",
+    accessorKey: "adPageName",
+    header: "Page",
+    cell: ({ row }) => (
+      <div className="capitalize">
+        {row.original.adPageName}
+      </div>
+    ),
   },
   {
-    accessorKey: "endDate",
-    header: "End Date",
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
+    accessorKey: "expiryDate",
+    header: "Expiry Date",
     cell: ({ row }) => {
-      const status = row.original.status
-      let statusClass = ""
-
-      switch (status) {
-        case "active":
-          statusClass = "text-green-600"
-          break
-        case "inactive":
-          statusClass = "text-yellow-600"
-          break
-        case "expired":
-          statusClass = "text-red-600"
-          break
-      }
-
-      return <div className={`capitalize ${statusClass}`}>{status}</div>
+      const date = new Date(row.original.expiryDate)
+      return date.toLocaleDateString()
     },
+  },
+  {
+    accessorKey: "isActive",
+    header: "Status",
+    cell: ({ row }) => (
+      <div className={`capitalize ${row.original.isActive ? "text-green-600" : "text-red-600"}`}>
+        {row.original.isActive ? "active" : "inactive"}
+      </div>
+    ),
   },
 ]
 
 const eventColumns: ColumnDef<Event>[] = [
   {
-    accessorKey: "title",
+    accessorKey: "name.en",
     header: "Title",
+    cell: ({ row }) => (
+      <div>
+        {row.original.name?.en?.[0]?.value || "N/A"}
+      </div>
+    ),
   },
   {
-    accessorKey: "date",
-    header: "Date",
+    accessorKey: "eventDate",
+    header: "Event Date",
+    cell: ({ row }) => {
+      const date = new Date(row.original.eventDate)
+      return date.toLocaleDateString()
+    },
   },
   {
-    accessorKey: "location",
-    header: "Location",
+    accessorKey: "registeredPeopleCount",
+    header: "Registered",
+    cell: ({ row }) => (
+      <div>
+        {row.original.registeredPeopleCount || "0"}
+      </div>
+    ),
   },
   {
-    accessorKey: "attendees",
-    header: "Attendees",
+    accessorKey: "isActive",
+    header: "Status",
+    cell: ({ row }) => (
+      <div className={`capitalize ${row.original.isActive ? "text-green-600" : "text-red-600"}`}>
+        {row.original.isActive ? "active" : "inactive"}
+      </div>
+    ),
   },
 ]
 
@@ -344,6 +350,222 @@ export default function DashboardPage() {
   const router = useRouter()
 
   const [activeTab, setActiveTab] = useState("day")
+  
+  // State for users data
+  const [recentUsers, setRecentUsers] = useState<User[]>([])
+  const [usersPagination, setUsersPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0
+  })
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false)
+
+  // State for obituaries data
+  const [recentObituaries, setRecentObituaries] = useState<Obituary[]>([])
+  const [obituariesPagination, setObituariesPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0
+  })
+  const [isLoadingObituaries, setIsLoadingObituaries] = useState(false)
+
+  // State for advertisements data
+  const [recentAds, setRecentAds] = useState<Ad[]>([])
+  const [adsPagination, setAdsPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0
+  })
+  const [isLoadingAds, setIsLoadingAds] = useState(false)
+
+  // State for events data
+  const [recentEvents, setRecentEvents] = useState<Event[]>([])
+  const [eventsPagination, setEventsPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0
+  })
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false)
+
+  // Fetch recent users from API
+  const fetchRecentUsers = async () => {
+    setIsLoadingUsers(true)
+    try {
+      const token = localStorage.getItem('token')
+      
+      if (!token) {
+        console.error('No authentication token found')
+        setRecentUsers([])
+        return
+      }
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/user/active?page=1&limit=10`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch users')
+      }
+
+      const data = await response.json()
+      
+      if (data.user && Array.isArray(data.user)) {
+        // Show only the first 5 users for the dashboard
+        setRecentUsers(data.user.slice(0, 5))
+        setUsersPagination(data.pagination)
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error)
+      // Set empty array on error
+      setRecentUsers([])
+    } finally {
+      setIsLoadingUsers(false)
+    }
+  }
+
+  // Fetch recent obituaries from API
+  const fetchRecentObituaries = async () => {
+    setIsLoadingObituaries(true)
+    try {
+      const token = localStorage.getItem('token')
+      
+      if (!token) {
+        console.error('No authentication token found')
+        setRecentObituaries([])
+        return
+      }
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/order/all?page=1&limit=10`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch obituaries')
+      }
+
+      const data = await response.json()
+      
+      if (data.orders && Array.isArray(data.orders)) {
+        // Show only the first 5 obituaries for the dashboard
+        setRecentObituaries(data.orders.slice(0, 5))
+        setObituariesPagination(data.pagination)
+      }
+    } catch (error) {
+      console.error('Error fetching obituaries:', error)
+      // Set empty array on error
+      setRecentObituaries([])
+    } finally {
+      setIsLoadingObituaries(false)
+    }
+  }
+
+  // Fetch recent advertisements from API
+  const fetchRecentAds = async () => {
+    setIsLoadingAds(true)
+    try {
+      const token = localStorage.getItem('token')
+      
+      if (!token) {
+        console.error('No authentication token found')
+        setRecentAds([])
+        return
+      }
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/advertistment/active?page=1&limit=10`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch advertisements')
+      }
+
+      const data = await response.json()
+      
+      if (data.advertisements && Array.isArray(data.advertisements)) {
+        // Show only the first 5 advertisements for the dashboard
+        setRecentAds(data.advertisements.slice(0, 5))
+        setAdsPagination(data.pagination)
+      }
+    } catch (error) {
+      console.error('Error fetching advertisements:', error)
+      // Set empty array on error
+      setRecentAds([])
+    } finally {
+      setIsLoadingAds(false)
+    }
+  }
+
+  // Fetch recent events from API
+  const fetchRecentEvents = async () => {
+    setIsLoadingEvents(true)
+    try {
+      const token = localStorage.getItem('token')
+      
+      if (!token) {
+        console.error('No authentication token found')
+        setRecentEvents([])
+        return
+      }
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/event/all?page=1&limit=10`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch events')
+      }
+
+      const data = await response.json()
+      
+      if (data.events && Array.isArray(data.events)) {
+        // Show only the first 5 events for the dashboard
+        setRecentEvents(data.events.slice(0, 5))
+        setEventsPagination(data.pagination)
+      }
+    } catch (error) {
+      console.error('Error fetching events:', error)
+      // Set empty array on error
+      setRecentEvents([])
+    } finally {
+      setIsLoadingEvents(false)
+    }
+  }
+
+  // Fetch users, obituaries, advertisements, and events on component mount
+  useEffect(() => {
+    fetchRecentUsers()
+    fetchRecentObituaries()
+    fetchRecentAds()
+    fetchRecentEvents()
+  }, [])
 
   const navigateToRecent = () => {
     router.push("/obituary/users")
@@ -468,13 +690,43 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <DataTable
-              columns={userColumns}
-              data={recentUsers}
-              currentPage={1}
-              totalPages={1}
-              totalItems={recentUsers.length}
-            />
+            {isLoadingUsers ? (
+              <div className="space-y-4">
+                {/* Table header skeleton */}
+                <div className="flex justify-between items-center py-2 border-b">
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                {/* Table rows skeleton */}
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex justify-between items-center py-3">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                ))}
+                {/* Pagination skeleton */}
+                <div className="flex justify-between items-center pt-4">
+                  <Skeleton className="h-4 w-32" />
+                  <div className="flex space-x-2">
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-8 w-8" />
+                    <Skeleton className="h-8 w-16" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <DataTable
+                columns={userColumns}
+                data={recentUsers}
+                currentPage={1}
+                totalPages={1}
+                totalItems={recentUsers.length}
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -492,13 +744,43 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <DataTable
-              columns={obituaryColumns}
-              data={recentObituaries}
-              currentPage={1}
-              totalPages={1}
-              totalItems={recentObituaries.length}
-            />
+            {isLoadingObituaries ? (
+              <div className="space-y-4">
+                {/* Table header skeleton */}
+                <div className="flex justify-between items-center py-2 border-b">
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                {/* Table rows skeleton */}
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex justify-between items-center py-3">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                ))}
+                {/* Pagination skeleton */}
+                <div className="flex justify-between items-center pt-4">
+                  <Skeleton className="h-4 w-32" />
+                  <div className="flex space-x-2">
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-8 w-8" />
+                    <Skeleton className="h-8 w-16" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <DataTable
+                columns={obituaryColumns}
+                data={recentObituaries}
+                currentPage={1}
+                totalPages={1}
+                totalItems={recentObituaries.length}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
@@ -519,13 +801,45 @@ export default function DashboardPage() {
 
           </CardHeader>
           <CardContent>
-            <DataTable
-              columns={adColumns}
-              data={recentAds}
-              currentPage={1}
-              totalPages={1}
-              totalItems={recentAds.length}
-            />
+            {isLoadingAds ? (
+              <div className="space-y-4">
+                {/* Table header skeleton */}
+                <div className="flex justify-between items-center py-2 border-b">
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                {/* Table rows skeleton */}
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex justify-between items-center py-3">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                ))}
+                {/* Pagination skeleton */}
+                <div className="flex justify-between items-center pt-4">
+                  <Skeleton className="h-4 w-32" />
+                  <div className="flex space-x-2">
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-8 w-8" />
+                    <Skeleton className="h-8 w-16" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <DataTable
+                columns={adColumns}
+                data={recentAds}
+                currentPage={1}
+                totalPages={1}
+                totalItems={recentAds.length}
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -544,13 +858,43 @@ export default function DashboardPage() {
 
           </CardHeader>
           <CardContent>
-            <DataTable
-              columns={eventColumns}
-              data={recentEvents}
-              currentPage={1}
-              totalPages={1}
-              totalItems={recentEvents.length}
-            />
+            {isLoadingEvents ? (
+              <div className="space-y-4">
+                {/* Table header skeleton */}
+                <div className="flex justify-between items-center py-2 border-b">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                {/* Table rows skeleton */}
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex justify-between items-center py-3">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                ))}
+                {/* Pagination skeleton */}
+                <div className="flex justify-between items-center pt-4">
+                  <Skeleton className="h-4 w-32" />
+                  <div className="flex space-x-2">
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-8 w-8" />
+                    <Skeleton className="h-8 w-16" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <DataTable
+                columns={eventColumns}
+                data={recentEvents}
+                currentPage={1}
+                totalPages={1}
+                totalItems={recentEvents.length}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
