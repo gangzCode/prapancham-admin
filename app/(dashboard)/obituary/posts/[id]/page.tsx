@@ -11,6 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { useLanguage } from "@/contexts/language-context"
 import { PageHeader } from "@/components/page-header"
@@ -21,7 +22,9 @@ import { Separator } from "@/components/ui/separator"
 // Form schema with validation
 const postFormSchema = z.object({
     information: z.object({
-        title: z.string().min(2, "Title must be at least 2 characters"),
+        firstName: z.string().min(1, "First name is required"),
+        lastName: z.string().min(1, "Last name is required"),
+        preferredName: z.string().optional(),
         address: z.string().min(1, "Address is required"),
         dateofBirth: z.string().min(1, "Birth date is required"),
         dateofDeath: z.string().min(1, "Death date is required"),
@@ -29,12 +32,13 @@ const postFormSchema = z.object({
         tributeVideo: z.string().optional(),
         shortDescription: z.string().optional(),
     }),
+    isDonationReceivable: z.boolean().default(false),
     accountDetails: z.object({
-        bankName: z.string().min(1, "Bank name is required"),
-        branchName: z.string().min(1, "Branch name is required"),
-        accountNumber: z.coerce.number().min(1, "Account number is required"),
-        accountHolderName: z.string().min(1, "Account holder name is required"),
-    }),
+        bankName: z.string().optional(),
+        branchName: z.string().optional(),
+        accountNumber: z.coerce.number().optional(),
+        accountHolderName: z.string().optional(),
+    }).optional(),
     primaryImage: z.string().optional(),
     thumbnailImage: z.string().optional(),
     additionalImages: z.array(z.string()).default([]),
@@ -61,12 +65,32 @@ const postFormSchema = z.object({
 
 type PostFormValues = z.infer<typeof postFormSchema>
 
+// Helper function to get display name with priority logic
+const getDisplayName = (information: { title?: string; firstName?: string; lastName?: string; preferredName?: string }) => {
+    // Priority 1: Use title if available (for backward compatibility)
+    if (information.title && information.title.trim()) {
+        return information.title
+    }
+    
+    // Priority 2: Use firstName + lastName if both are available
+    if (information.firstName && information.firstName.trim() && 
+        information.lastName && information.lastName.trim()) {
+        return `${information.firstName} ${information.lastName}`
+    }
+    
+    // Priority 3: Use preferredName as fallback
+    return information.preferredName || 'Unknown'
+}
+
 // Type definitions for API response
 interface PostData {
     _id: string
     username: string
     information: {
-        title: string
+        title?: string // For backward compatibility with old records
+        firstName?: string
+        lastName?: string
+        preferredName?: string
         address: string
         dateofBirth: string
         dateofDeath: string
@@ -74,11 +98,12 @@ interface PostData {
         tributeVideo?: string
         shortDescription?: string
     }
-    accountDetails: {
-        bankName: string
-        branchName: string
-        accountNumber: number
-        accountHolderName: string
+    isDonationReceivable?: boolean
+    accountDetails?: {
+        bankName?: string
+        branchName?: string
+        accountNumber?: number
+        accountHolderName?: string
     }
     primaryImage: string
     thumbnailImage: string
@@ -265,7 +290,9 @@ interface FullPackageData {
 // Default values for the form
 const defaultValues: Partial<PostFormValues> = {
     information: {
-        title: "",
+        firstName: "",
+        lastName: "",
+        preferredName: "",
         address: "",
         dateofBirth: "",
         dateofDeath: "",
@@ -273,6 +300,7 @@ const defaultValues: Partial<PostFormValues> = {
         tributeVideo: "",
         shortDescription: "",
     },
+    isDonationReceivable: false,
     accountDetails: {
         bankName: "",
         branchName: "",
@@ -358,7 +386,9 @@ export default function EditPostPage() {
                 // Populate form with fetched data
                 form.reset({
                     information: {
-                        title: data.information.title || "",
+                        firstName: data.information.firstName || "",
+                        lastName: data.information.lastName || "",
+                        preferredName: data.information.preferredName || data.information.title || "", // Backward compatibility
                         address: data.information.address || "",
                         dateofBirth: data.information.dateofBirth ? data.information.dateofBirth.split('T')[0] : "",
                         dateofDeath: data.information.dateofDeath ? data.information.dateofDeath.split('T')[0] : "",
@@ -366,6 +396,7 @@ export default function EditPostPage() {
                         tributeVideo: data.information.tributeVideo || "",
                         shortDescription: data.information.shortDescription || "",
                     },
+                    isDonationReceivable: data.isDonationReceivable || false,
                     accountDetails: {
                         bankName: data.accountDetails?.bankName || "",
                         branchName: data.accountDetails?.branchName || "",
@@ -544,6 +575,7 @@ export default function EditPostPage() {
     const additionalImages = form.watch("additionalImages")
     const slideshowImages = form.watch("slideshowImages")
     const contactDetails = form.watch("contactDetails")
+    const isDonationReceivable = form.watch("isDonationReceivable")
 
     // Form submission handler
     async function onSubmit(data: PostFormValues) {
@@ -569,8 +601,19 @@ export default function EditPostPage() {
             // Add order ID
             formData.append('orderId', postId)
 
-            // Add information as JSON
-            formData.append('information', JSON.stringify(data.information))
+            // Add information as JSON with backward compatibility
+            const informationData = {
+                ...data.information,
+                // For backward compatibility, if preferredName is empty, create it from firstName + lastName
+                preferredName: data.information.preferredName || 
+                    (data.information.firstName && data.information.lastName 
+                        ? `${data.information.firstName} ${data.information.lastName}` 
+                        : data.information.firstName || data.information.lastName || "")
+            }
+            formData.append('information', JSON.stringify(informationData))
+
+            // Add donation receivable flag
+            formData.append('isDonationReceivable', data.isDonationReceivable.toString())
 
             // Add account details as JSON
             formData.append('accountDetails', JSON.stringify(data.accountDetails))
@@ -981,12 +1024,40 @@ export default function EditPostPage() {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <FormField
                                                 control={form.control}
-                                                name="information.title"
+                                                name="information.firstName"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Title</FormLabel>
+                                                        <FormLabel>First Name</FormLabel>
                                                         <FormControl>
-                                                            <Input placeholder="Enter title" {...field} />
+                                                            <Input placeholder="Enter first name" {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            <FormField
+                                                control={form.control}
+                                                name="information.lastName"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Last Name</FormLabel>
+                                                        <FormControl>
+                                                            <Input placeholder="Enter last name" {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            <FormField
+                                                control={form.control}
+                                                name="information.preferredName"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Preferred Name</FormLabel>
+                                                        <FormControl>
+                                                            <Input placeholder="Enter preferred name" {...field} />
                                                         </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
@@ -1085,14 +1156,52 @@ export default function EditPostPage() {
 
                                     <Separator className="my-8" />
 
-                                    {/* Account Details Section */}
+                                    {/* Donation Settings Section */}
                                     <div className="space-y-6">
                                         <div className="space-y-2">
                                             <h3 className="text-xl font-semibold text-foreground border-b-2 border-primary pb-2">
-                                                🏦 Account Details
+                                                💝 Donation Settings
                                             </h3>
                                             <p className="text-sm text-muted-foreground">
-                                                Banking information for financial transactions
+                                                Configure whether this memorial can receive donations
+                                            </p>
+                                        </div>
+                                        <FormField
+                                            control={form.control}
+                                            name="isDonationReceivable"
+                                            render={({ field }) => (
+                                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                                    <div className="space-y-0.5">
+                                                        <FormLabel className="text-base">
+                                                            Enable Donations
+                                                        </FormLabel>
+                                                        <div className="text-sm text-muted-foreground">
+                                                            Allow people to make donations through this memorial
+                                                        </div>
+                                                    </div>
+                                                    <FormControl>
+                                                        <Switch
+                                                            checked={field.value}
+                                                            onCheckedChange={field.onChange}
+                                                        />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+
+                                    <Separator className="my-8" />
+
+                                    {/* Account Details Section */}
+                                    <div className={`space-y-6 ${!isDonationReceivable ? 'opacity-50' : ''}`}>
+                                        <div className="space-y-2">
+                                            <h3 className="text-xl font-semibold text-foreground border-b-2 border-primary pb-2">
+                                                🏦 Account Details <span className="text-sm text-muted-foreground font-normal">(Optional)</span>
+                                                {isDonationReceivable && <span className="text-sm text-green-600 font-normal ml-2">- Donations Enabled</span>}
+                                                {!isDonationReceivable && <span className="text-sm text-orange-600 font-normal ml-2">- Donations Disabled</span>}
+                                            </h3>
+                                            <p className="text-sm text-muted-foreground">
+                                                Banking information for financial transactions (only required if donations are enabled)
                                             </p>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1103,7 +1212,11 @@ export default function EditPostPage() {
                                                     <FormItem>
                                                         <FormLabel>Bank Name</FormLabel>
                                                         <FormControl>
-                                                            <Input placeholder="Enter bank name" {...field} />
+                                                            <Input 
+                                                                placeholder="Enter bank name" 
+                                                                disabled={!isDonationReceivable}
+                                                                {...field} 
+                                                            />
                                                         </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
@@ -1117,7 +1230,11 @@ export default function EditPostPage() {
                                                     <FormItem>
                                                         <FormLabel>Branch Name</FormLabel>
                                                         <FormControl>
-                                                            <Input placeholder="Enter branch name" {...field} />
+                                                            <Input 
+                                                                placeholder="Enter branch name" 
+                                                                disabled={!isDonationReceivable}
+                                                                {...field} 
+                                                            />
                                                         </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
@@ -1131,7 +1248,12 @@ export default function EditPostPage() {
                                                     <FormItem>
                                                         <FormLabel>Account Number</FormLabel>
                                                         <FormControl>
-                                                            <Input type="number" placeholder="Enter account number" {...field} />
+                                                            <Input 
+                                                                type="number" 
+                                                                placeholder="Enter account number" 
+                                                                disabled={!isDonationReceivable}
+                                                                {...field} 
+                                                            />
                                                         </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
@@ -1145,7 +1267,11 @@ export default function EditPostPage() {
                                                     <FormItem>
                                                         <FormLabel>Account Holder Name</FormLabel>
                                                         <FormControl>
-                                                            <Input placeholder="Enter account holder name" {...field} />
+                                                            <Input 
+                                                                placeholder="Enter account holder name" 
+                                                                disabled={!isDonationReceivable}
+                                                                {...field} 
+                                                            />
                                                         </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
