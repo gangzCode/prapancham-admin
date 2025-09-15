@@ -141,6 +141,8 @@ export default function ObituaryDonationsPage() {
   const [donationsSummary, setDonationsSummary] = useState({
     totalDonationReceived: 0,
     totalDonationGivenBack: 0,
+    totalMemoryMoneyReceived: 0,
+    totalFlowerMoneyReceived: 0,
     netDonation: 0
   })
 
@@ -1391,7 +1393,7 @@ export default function ObituaryDonationsPage() {
         </div>
       ) : (
         <>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Total Donations Received</CardTitle>
@@ -1409,6 +1411,26 @@ export default function ObituaryDonationsPage() {
           <CardContent>
             <div className="text-2xl font-bold">
                   {donationsSummary.totalDonationGivenBack.toFixed(2)} CAD
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Total Memory Money Received</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+                  {donationsSummary.totalMemoryMoneyReceived.toFixed(2)} CAD
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Total Flower Money Received</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+                  {donationsSummary.totalFlowerMoneyReceived.toFixed(2)} CAD
             </div>
           </CardContent>
         </Card>

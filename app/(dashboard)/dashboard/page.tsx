@@ -391,6 +391,10 @@ export default function DashboardPage() {
   const [donationsData, setDonationsData] = useState({
     totalDonationReceived: 0,
     totalDonationGivenBack: 0,
+    totalMemoryMoneyReceived: 0,
+    totalFlowerMoneyReceived: 0,
+    remembrancePostIncome: 0,
+    obituaryPostIncome: 0,
     netDonation: 0
   })
   const [isLoadingDonations, setIsLoadingDonations] = useState(false)
@@ -578,6 +582,10 @@ export default function DashboardPage() {
         setDonationsData({
           totalDonationReceived: 0,
           totalDonationGivenBack: 0,
+          totalMemoryMoneyReceived: 0,
+          totalFlowerMoneyReceived: 0,
+          remembrancePostIncome: 0,
+          obituaryPostIncome: 0,
           netDonation: 0
         })
         return
@@ -604,6 +612,10 @@ export default function DashboardPage() {
         setDonationsData({
           totalDonationReceived: data.totalDonationReceived || 0,
           totalDonationGivenBack: data.totalDonationGivenBack || 0,
+          totalMemoryMoneyReceived: data.totalMemoryMoneyReceived || 0,
+          totalFlowerMoneyReceived: data.totalFlowerMoneyReceived || 0,
+          remembrancePostIncome: data.remembrancePostIncome || 0,
+          obituaryPostIncome: data.obituaryPostIncome || 0,
           netDonation: data.netDonation || 0
         })
       }
@@ -613,6 +625,10 @@ export default function DashboardPage() {
       setDonationsData({
         totalDonationReceived: 0,
         totalDonationGivenBack: 0,
+        totalMemoryMoneyReceived: 0,
+        totalFlowerMoneyReceived: 0,
+        remembrancePostIncome: 0,
+        obituaryPostIncome: 0,
         netDonation: 0
       })
     } finally {
@@ -649,18 +665,30 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <PageHeader title="Dashboard" description="Overview of your website's performance and recent activities." />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
           title="Obituary Post Income"
-          value="$12,450"
+          value={isLoadingDonations ? "Loading..." : `CAD $${donationsData.obituaryPostIncome.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={<FileText />}
           trend={{ value: 12, isPositive: true }}
         />
         <StatCard
           title="Remembrance Post Income"
-          value="$8,230"
+          value={isLoadingDonations ? "Loading..." : `CAD $${donationsData.remembrancePostIncome.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={<DollarSign />}
           trend={{ value: 8, isPositive: true }}
+        />
+        <StatCard
+          title="Total Memory Money"
+          value={isLoadingDonations ? "Loading..." : `CAD $${donationsData.totalMemoryMoneyReceived.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          icon={<DollarSign />}
+          trend={{ value: 10, isPositive: true }}
+        />
+        <StatCard
+          title="Total Flower Money"
+          value={isLoadingDonations ? "Loading..." : `CAD $${donationsData.totalFlowerMoneyReceived.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          icon={<DollarSign />}
+          trend={{ value: 6, isPositive: true }}
         />
         <StatCard
           title="Donations Received"
