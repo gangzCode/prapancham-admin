@@ -12,21 +12,17 @@ import { Skeleton } from "@/components/ui/skeleton"
 import type { ColumnDef } from "@tanstack/react-table"
 import { useRouter } from "next/navigation"
 
-// Sample data for charts
-const chartData = [
-  { name: "Jan", value: 12 },
-  { name: "Feb", value: 19 },
-  { name: "Mar", value: 15 },
-  { name: "Apr", value: 27 },
-  { name: "May", value: 25 },
-  { name: "Jun", value: 32 },
-  { name: "Jul", value: 30 },
-  { name: "Aug", value: 29 },
-  { name: "Sep", value: 35 },
-  { name: "Oct", value: 40 },
-  { name: "Nov", value: 38 },
-  { name: "Dec", value: 41 },
-]
+// Type definition for chart data
+type ChartDataPoint = {
+  name: string
+  value: number
+}
+
+type OrderCountData = {
+  dailyCount: ChartDataPoint[]
+  monthlyCount: ChartDataPoint[]
+  annualCount: ChartDataPoint[]
+}
 
 // Sample data for recent users
 type User = {
@@ -351,6 +347,28 @@ export default function DashboardPage() {
 
   const [activeTab, setActiveTab] = useState("day")
 
+  // State for chart data
+  const [orderCountData, setOrderCountData] = useState<OrderCountData>({
+    dailyCount: [],
+    monthlyCount: [],
+    annualCount: []
+  })
+  const [isLoadingChart, setIsLoadingChart] = useState(false)
+
+  // Function to get chart data based on active tab
+  const getChartData = () => {
+    switch (activeTab) {
+      case "day":
+        return orderCountData.dailyCount
+      case "month":
+        return orderCountData.monthlyCount
+      case "year":
+        return orderCountData.annualCount
+      default:
+        return orderCountData.dailyCount
+    }
+  }
+
   // State for users data
   const [recentUsers, setRecentUsers] = useState<User[]>([])
   const [usersPagination, setUsersPagination] = useState({
@@ -398,6 +416,59 @@ export default function DashboardPage() {
     netDonation: 0
   })
   const [isLoadingDonations, setIsLoadingDonations] = useState(false)
+
+  // Fetch order count data for charts
+  const fetchOrderCountData = async () => {
+    setIsLoadingChart(true)
+    try {
+      const token = localStorage.getItem('token')
+
+      if (!token) {
+        console.error('No authentication token found')
+        setOrderCountData({
+          dailyCount: [],
+          monthlyCount: [],
+          annualCount: []
+        })
+        return
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/order/count/order-count-summary`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch order count data')
+      }
+
+      const data = await response.json()
+
+      if (data) {
+        setOrderCountData({
+          dailyCount: data.dailyCount || [],
+          monthlyCount: data.monthlyCount || [],
+          annualCount: data.annualCount || []
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching order count data:', error)
+      // Set empty arrays on error
+      setOrderCountData({
+        dailyCount: [],
+        monthlyCount: [],
+        annualCount: []
+      })
+    } finally {
+      setIsLoadingChart(false)
+    }
+  }
 
   // Fetch recent users from API
   const fetchRecentUsers = async () => {
@@ -636,8 +707,9 @@ export default function DashboardPage() {
     }
   }
 
-  // Fetch users, obituaries, advertisements, events, and donations on component mount
+  // Fetch users, obituaries, advertisements, events, donations, and chart data on component mount
   useEffect(() => {
+    fetchOrderCountData()
     fetchRecentUsers()
     fetchRecentObituaries()
     fetchRecentAds()
@@ -718,23 +790,41 @@ export default function DashboardPage() {
             </Tabs>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0B4157" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#0B4157" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="value" stroke="#0B4157" fillOpacity={1} fill="url(#colorValue)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            {isLoadingChart ? (
+              <div className="h-[300px] flex items-center justify-center">
+                <div className="space-y-4 w-full">
+                  <div className="flex justify-center">
+                    <Skeleton className="h-6 w-32" />
+                  </div>
+                  <div className="space-y-3">
+                    {[...Array(8)].map((_, i) => (
+                      <div key={i} className="flex items-end justify-between">
+                        <Skeleton className="h-4 w-12" />
+                        <Skeleton className={`h-${Math.floor(Math.random() * 20) + 10} w-8`} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={getChartData()}>
+                    <defs>
+                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0B4157" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#0B4157" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="value" stroke="#0B4157" fillOpacity={1} fill="url(#colorValue)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </CardContent>
         </Card>
 
