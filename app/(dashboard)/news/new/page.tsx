@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import * as z from "zod"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
@@ -77,13 +77,13 @@ const newsFormSchema = z.object({
             }),
         ),
     }),
-    thumbnailImage: z.any().optional().refine((file) => file instanceof File, {
+    thumbnailImage: z.any().refine((file) => file instanceof File, {
         message: "Thumbnail image is required.",
     }),
-    mainImage: z.any().optional().refine((file) => file instanceof File, {
-        message: "main Image is required.",
+    mainImage: z.any().refine((file) => file instanceof File, {
+        message: "Main image is required.",
     }),
-    otherImages: z.array(z.string()),
+    otherImages: z.array(z.any()),
     paragraphs: z.array(
         z.object({
             en: z.array(
@@ -170,7 +170,7 @@ export default function NewNewsPage() {
     const { toast } = useToast()
     const { language = "en", t } = useLanguage()
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [otherImages, setOtherImages] = useState<string[]>([])
+    const [otherImages, setOtherImages] = useState<File[]>([])
     const [categories, setCategories] = useState<any[]>([])
     const [categoryPage, setCategoryPage] = useState(1)
     const [categoryTotalPages, setCategoryTotalPages] = useState(1)
@@ -209,6 +209,13 @@ export default function NewNewsPage() {
     const form = useForm<NewsFormValues>({
         resolver: zodResolver(newsFormSchema),
         defaultValues,
+    })
+
+    // Watch paragraphs field for reactivity
+    const paragraphs = useWatch({
+        control: form.control,
+        name: "paragraphs",
+        defaultValue: defaultValues.paragraphs,
     })
 
     // Form submission handler
@@ -282,8 +289,8 @@ export default function NewNewsPage() {
     }
 
     // Add another image
-    const addOtherImage = (url: string) => {
-        const newOtherImages = [...otherImages, url]
+    const addOtherImage = (file: File) => {
+        const newOtherImages = [...otherImages, file]
         setOtherImages(newOtherImages)
         form.setValue("otherImages", newOtherImages)
     }
@@ -313,7 +320,7 @@ export default function NewNewsPage() {
                             })}
                             className="space-y-8"
                         >
-                            <Tabs defaultValue={language} className="w-full">
+                            <Tabs defaultValue="en" className="w-full">
                                 <TabsList className="mb-4">
                                     <TabsTrigger value="en">English</TabsTrigger>
                                     <TabsTrigger value="ta">Tamil</TabsTrigger>
@@ -359,7 +366,7 @@ export default function NewNewsPage() {
                                             </Button>
                                         </div>
 
-                                        {form.getValues().paragraphs.map((_, index) => (
+                                        {paragraphs?.map((_, index) => (
                                             <div key={index} className="flex items-start gap-2">
                                                 <FormField
                                                     control={form.control}
@@ -432,8 +439,15 @@ export default function NewNewsPage() {
                                     />
 
                                     <div className="space-y-4">
-                                        <FormLabel>Paragraphs (Tamil)</FormLabel>
-                                        {form.getValues().paragraphs.map((_, index) => (
+                                        <div className="flex items-center justify-between">
+                                            <FormLabel>Paragraphs (Tamil)</FormLabel>
+                                            <Button type="button" variant="outline" size="sm" onClick={addParagraph}>
+                                                <Plus className="h-4 w-4 mr-2" />
+                                                Add Paragraph
+                                            </Button>
+                                        </div>
+
+                                        {paragraphs?.map((_, index) => (
                                             <FormField
                                                 key={index}
                                                 control={form.control}
@@ -500,8 +514,15 @@ export default function NewNewsPage() {
                                     />
 
                                     <div className="space-y-4">
-                                        <FormLabel>Paragraphs (Sinhala)</FormLabel>
-                                        {form.getValues().paragraphs.map((_, index) => (
+                                        <div className="flex items-center justify-between">
+                                            <FormLabel>Paragraphs (Sinhala)</FormLabel>
+                                            <Button type="button" variant="outline" size="sm" onClick={addParagraph}>
+                                                <Plus className="h-4 w-4 mr-2" />
+                                                Add Paragraph
+                                            </Button>
+                                        </div>
+
+                                        {paragraphs?.map((_, index) => (
                                             <FormField
                                                 key={index}
                                                 control={form.control}
@@ -667,7 +688,7 @@ export default function NewNewsPage() {
                                     <div className="flex-1 ml-4">
                                         <ImageUpload
                                             value=""
-                                            onChange={(url) => addOtherImage(url)}
+                                            onChange={(url) => url && addOtherImage(url)}
                                             previewHeight={100}
                                             previewWidth={150}
                                         />
@@ -679,7 +700,7 @@ export default function NewNewsPage() {
                                         {otherImages.map((image, index) => (
                                             <div key={index} className="relative">
                                                 <img
-                                                    src={image || "/placeholder.svg"}
+                                                    src={image instanceof File ? URL.createObjectURL(image) : "/placeholder.svg"}
                                                     alt={`Additional image ${index + 1}`}
                                                     className="w-full h-auto rounded-md"
                                                 />

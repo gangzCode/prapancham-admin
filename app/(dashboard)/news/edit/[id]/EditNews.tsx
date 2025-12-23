@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import * as z from "zod"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
@@ -180,6 +180,12 @@ export default function EditNewsPage({ id }: { id: string }) {
         },
     })
 
+    // Watch paragraphs field for reactivity
+    const paragraphs = useWatch({
+        control: form.control,
+        name: "paragraphs",
+    })
+
     useEffect(() => {
         async function fetchCategories() {
             try {
@@ -318,9 +324,11 @@ export default function EditNewsPage({ id }: { id: string }) {
     }
 
     // Add another image
-    const addOtherImage = (url: string) => {
+    const addOtherImage = (url: string | File | null) => {
         if (!url) return
-        const newOtherImages = [...otherImages, url]
+        const urlString = typeof url === 'string' ? url : ''
+        if (!urlString) return
+        const newOtherImages = [...otherImages, urlString]
         setOtherImages(newOtherImages)
         form.setValue("otherImages", newOtherImages)
     }
@@ -352,7 +360,7 @@ export default function EditNewsPage({ id }: { id: string }) {
                 <CardContent className="pt-6">
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                            <Tabs defaultValue={language} className="w-full">
+                            <Tabs defaultValue="en" className="w-full">
                                 <TabsList className="mb-4">
                                     <TabsTrigger value="en">English</TabsTrigger>
                                     <TabsTrigger value="ta">Tamil</TabsTrigger>
@@ -398,7 +406,7 @@ export default function EditNewsPage({ id }: { id: string }) {
                                             </Button>
                                         </div>
 
-                                        {form.getValues().paragraphs?.map((_, index) => (
+                                        {paragraphs?.map((_, index) => (
                                             <div key={index} className="flex items-start gap-2">
                                                 <FormField
                                                     control={form.control}
@@ -471,8 +479,15 @@ export default function EditNewsPage({ id }: { id: string }) {
                                     />
 
                                     <div className="space-y-4">
-                                        <FormLabel>Paragraphs (Tamil)</FormLabel>
-                                        {form.getValues().paragraphs?.map((_, index) => (
+                                        <div className="flex items-center justify-between">
+                                            <FormLabel>Paragraphs (Tamil)</FormLabel>
+                                            <Button type="button" variant="outline" size="sm" onClick={addParagraph}>
+                                                <Plus className="h-4 w-4 mr-2" />
+                                                Add Paragraph
+                                            </Button>
+                                        </div>
+
+                                        {paragraphs?.map((_, index) => (
                                             <FormField
                                                 key={index}
                                                 control={form.control}
@@ -539,8 +554,15 @@ export default function EditNewsPage({ id }: { id: string }) {
                                     />
 
                                     <div className="space-y-4">
-                                        <FormLabel>Paragraphs (Sinhala)</FormLabel>
-                                        {form.getValues().paragraphs?.map((_, index) => (
+                                        <div className="flex items-center justify-between">
+                                            <FormLabel>Paragraphs (Sinhala)</FormLabel>
+                                            <Button type="button" variant="outline" size="sm" onClick={addParagraph}>
+                                                <Plus className="h-4 w-4 mr-2" />
+                                                Add Paragraph
+                                            </Button>
+                                        </div>
+
+                                        {paragraphs?.map((_, index) => (
                                             <FormField
                                                 key={index}
                                                 control={form.control}
