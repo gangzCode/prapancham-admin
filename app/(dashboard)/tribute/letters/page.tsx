@@ -68,6 +68,7 @@ export default function TributeLettersPage() {
     const [editName, setEditName] = useState("")
     const [editIsActive, setEditIsActive] = useState(true)
     const [editImage, setEditImage] = useState<File | null>(null)
+    const [editCurrentImage, setEditCurrentImage] = useState<string>("")
     const [editLoading, setEditLoading] = useState(false)
 
     const { data, error, isLoading, mutate } = useSWR(
@@ -123,6 +124,7 @@ export default function TributeLettersPage() {
         setEditLetterId(letter._id)
         setEditName(letter.name)
         setEditImage(null)
+        setEditCurrentImage(letter.image)
         setEditIsActive(letter.isActive)
         setEditDialogOpen(true)
     }
@@ -159,6 +161,7 @@ export default function TributeLettersPage() {
             setEditDialogOpen(false)
             setEditLetterId(null)
             setEditImage(null)
+            setEditCurrentImage("")
             setEditName("")
             setEditIsActive(true)
             mutate()
@@ -384,14 +387,24 @@ export default function TributeLettersPage() {
                             />
                         </div>
                         <div>
-                            <Label htmlFor="letter-image">Image</Label>
+                            <Label htmlFor="letter-image">Image (optional)</Label>
+                            {editCurrentImage && (
+                                <div className="mt-2 mb-2">
+                                    <p className="text-sm text-muted-foreground mb-1">Current Image:</p>
+                                    <img
+                                        src={editCurrentImage}
+                                        alt="Current letter"
+                                        className="h-20 w-20 rounded-md object-cover border"
+                                    />
+                                </div>
+                            )}
                             <Input
                                 id="letter-image"
                                 type="file"
                                 accept="image/*"
                                 onChange={e => setEditImage(e.target.files?.[0] || null)}
-                                required
                             />
+                            <p className="text-xs text-muted-foreground mt-1">Leave empty to keep current image</p>
                         </div>
                         <div>
                             <Label>Status</Label>
