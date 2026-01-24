@@ -191,7 +191,7 @@ export default function EditNewsPage({ id }: { id: string }) {
             try {
                 const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
 
-                const res = await fetch(`https://prapancham-backend.vercel.app/api/v1/news/news-category/all`, {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/news/news-category/all`, {
                     headers: {
                         "Authorization": `Bearer ${token}`,
                     },
@@ -219,7 +219,7 @@ export default function EditNewsPage({ id }: { id: string }) {
         async function fetchNews() {
             try {
 
-                const response = await fetch(`https://prapancham-backend.vercel.app/api/v1/news/${id}`);
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/news/${id}`);
                 const newsData = await response.json();
 
                 // Set form values
@@ -275,7 +275,7 @@ export default function EditNewsPage({ id }: { id: string }) {
             formData.append("newsId", id)
 
 
-            const response = await fetch(`https://prapancham-backend.vercel.app/api/v1/news/update`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/news/update`, {
                 method: "POST",
                 headers: {
                     ...(token && { Authorization: `Bearer ${token}` }),
