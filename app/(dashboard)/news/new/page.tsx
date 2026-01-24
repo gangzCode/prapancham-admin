@@ -240,7 +240,7 @@ export default function NewNewsPage() {
             })
 
 
-            const response = await fetch(`https://prapancham-backend.vercel.app/api/v1/news`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/news/`, {
                 method: "POST",
                 headers: {
                     ...(token && { Authorization: `Bearer ${token}` }),
