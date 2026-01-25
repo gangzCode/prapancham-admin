@@ -75,9 +75,10 @@ const newsFormSchema = z.object({
             }),
         ),
     }),
-    thumbnailImage: z.string().min(1, { message: "Thumbnail image is required." }),
-    mainImage: z.string().min(1, { message: "Main image is required." }),
-    otherImages: z.array(z.string()),
+    thumbnailImage: z.union([z.string(), z.instanceof(File)]).refine((val) => val !== null && val !== "", { message: "Thumbnail image is required." }),
+    mainImage: z.union([z.string(), z.instanceof(File)]).refine((val) => val !== null && val !== "", { message: "Main image is required." }),
+    otherImages: z.array(z.union([z.string(), z.instanceof(File)])),
+
     paragraphs: z.array(
         z.object({
             en: z.array(
@@ -267,8 +268,22 @@ export default function EditNewsPage({ id }: { id: string }) {
             formData.append("newsCategory", data.newsCategory)
             formData.append("isBreakingNews", String(data.isBreakingNews))
             formData.append("isImportantNews", String(data.isImportantNews))
-            formData.append("thumbnailImage", data.thumbnailImage)
-            formData.append("mainImage", data.mainImage)
+            
+            // Handle thumbnailImage - can be File or string
+            if (data.thumbnailImage instanceof File) {
+                formData.append("thumbnailImage", data.thumbnailImage)
+            } else {
+                formData.append("thumbnailImage", data.thumbnailImage)
+            }
+            
+            // Handle mainImage - can be File or string
+            if (data.mainImage instanceof File) {
+                formData.append("mainImage", data.mainImage)
+            } else {
+                formData.append("mainImage", data.mainImage)
+            }
+            
+            // Handle otherImages - can be File or string
             data.otherImages.forEach((file: any) => {
                 formData.append("otherImages", file)
             })
@@ -326,11 +341,9 @@ export default function EditNewsPage({ id }: { id: string }) {
     // Add another image
     const addOtherImage = (url: string | File | null) => {
         if (!url) return
-        const urlString = typeof url === 'string' ? url : ''
-        if (!urlString) return
-        const newOtherImages = [...otherImages, urlString]
-        setOtherImages(newOtherImages)
-        form.setValue("otherImages", newOtherImages)
+        const newOtherImages = [...otherImages, url as any]
+        setOtherImages(newOtherImages as any)
+        form.setValue("otherImages", newOtherImages as any)
     }
 
     // Remove an other image
