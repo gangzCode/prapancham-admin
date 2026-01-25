@@ -135,7 +135,7 @@ export default function EditNewsPage({ id }: { id: string }) {
     const { language, t } = useLanguage()
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
-    const [otherImages, setOtherImages] = useState<string[]>([])
+    const [otherImages, setOtherImages] = useState<(string | File)[]>([])
     const [newsCategories, setNewsCategories] = useState<{
         id: string
         name: {
@@ -341,9 +341,9 @@ export default function EditNewsPage({ id }: { id: string }) {
     // Add another image
     const addOtherImage = (url: string | File | null) => {
         if (!url) return
-        const newOtherImages = [...otherImages, url as any]
-        setOtherImages(newOtherImages as any)
-        form.setValue("otherImages", newOtherImages as any)
+        const newOtherImages = [...otherImages, url]
+        setOtherImages(newOtherImages)
+        form.setValue("otherImages", newOtherImages)
     }
 
     // Remove an other image
@@ -351,6 +351,14 @@ export default function EditNewsPage({ id }: { id: string }) {
         const newOtherImages = otherImages.filter((_, i) => i !== index)
         setOtherImages(newOtherImages)
         form.setValue("otherImages", newOtherImages)
+    }
+
+    // Get preview URL for image (handles both File and string)
+    const getImagePreviewUrl = (image: string | File): string => {
+        if (image instanceof File) {
+            return URL.createObjectURL(image)
+        }
+        return image
     }
 
     if (isLoading) {
@@ -753,7 +761,7 @@ export default function EditNewsPage({ id }: { id: string }) {
                                         {otherImages.map((image, index) => (
                                             <div key={index} className="relative">
                                                 <img
-                                                    src={image || "/placeholder.svg"}
+                                                    src={getImagePreviewUrl(image)}
                                                     alt={`Additional image ${index + 1}`}
                                                     className="w-full h-auto rounded-md"
                                                 />
