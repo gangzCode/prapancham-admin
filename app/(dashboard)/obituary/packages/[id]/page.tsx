@@ -41,6 +41,7 @@ const packageFormSchema = z.object({
     isFeatured: z.boolean().default(false),
     isTributeVideoUploading: z.boolean().default(false),
     isAdditionalImages: z.boolean().default(false),
+    isSlideShow: z.boolean().default(false),
     isActive: z.boolean().default(true),
     noofAdditionalImages: z.coerce.number().min(0).optional(),
     noofContectDetails: z.coerce.number().min(0).optional(),
@@ -193,6 +194,7 @@ const defaultValues: Partial<PackageFormValues> = {
     isFeatured: false,
     isTributeVideoUploading: false,
     isAdditionalImages: false,
+    isSlideShow: false,
     isActive: true,
     noofAdditionalImages: 0,
     noofContectDetails: 0,
@@ -271,6 +273,7 @@ export default function EditPackagePage() {
                     isFeatured: packageData.isFeatured || false,
                     isTributeVideoUploading: packageData.isTributeVideoUploading || false,
                     isAdditionalImages: packageData.isAdditionalImages || false,
+                    isSlideShow: packageData.isSlideShow || false,
                     isActive: packageData.isActive !== undefined ? packageData.isActive : true,
                     noofAdditionalImages: packageData.noofAdditionalImages || 0,
                     noofContectDetails: packageData.noofContectDetails || 0,
@@ -433,6 +436,7 @@ export default function EditPackagePage() {
 
     // Watch form values to conditionally show fields
     const isAdditionalImages = form.watch("isAdditionalImages")
+    const isSlideShow = form.watch("isSlideShow")
     const priceList = form.watch("priceList")
     const description = form.watch("description")
     const noofBgColors = form.watch("noofBgColors")
@@ -523,7 +527,7 @@ export default function EditPackagePage() {
             })) || [],
             "isTributeVideoUploading": data.isTributeVideoUploading,
             "isAdditionalImages": data.isAdditionalImages,
-            "isSlideShow": false, // Not available in current form
+            "isSlideShow": data.isSlideShow,
             "isPriority": data.isPriority,
             "isFeatured": data.isFeatured,
             "isSocialSharing": false, // Not available in current form
@@ -825,7 +829,7 @@ export default function EditPackagePage() {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <FormField
                                     control={form.control}
                                     name="isTributeVideoUploading"
@@ -850,6 +854,22 @@ export default function EditPackagePage() {
                                             <div className="space-y-0.5">
                                                 <FormLabel className="text-base">Additional Images</FormLabel>
                                                 <FormDescription>Allow additional images?</FormDescription>
+                                            </div>
+                                            <FormControl>
+                                                <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="isSlideShow"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                            <div className="space-y-0.5">
+                                                <FormLabel className="text-base">Slideshow Images</FormLabel>
+                                                <FormDescription>Show additional images as a slideshow</FormDescription>
                                             </div>
                                             <FormControl>
                                                 <Switch checked={field.value} onCheckedChange={field.onChange} />

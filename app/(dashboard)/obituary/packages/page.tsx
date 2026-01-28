@@ -400,9 +400,16 @@ export default function PackagePage() {
                     <p>{viewPackageData.isAdditionalImages ? `Yes (${viewPackageData.noofAdditionalImages})` : "No"}</p>
                   </div>
                   <div>
+                    <h3 className="font-medium text-sm text-muted-foreground">Slideshow Enabled</h3>
+                    <p>{viewPackageData.isSlideShow ? "Yes" : "No"}</p>
+                  </div>
+                  <div>
                     <h3 className="font-medium text-sm text-muted-foreground">Contact Details</h3>
                     <p>{viewPackageData.noofContectDetails}</p>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <h3 className="font-medium text-sm text-muted-foreground">Tribute Video Uploading</h3>
                     <p>{viewPackageData.isTributeVideoUploading ? "Yes" : "No"}</p>
